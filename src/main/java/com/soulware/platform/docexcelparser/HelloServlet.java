@@ -87,13 +87,14 @@ public class HelloServlet extends HttpServlet {
         // Botones de acción
         out.println("<div>");
         out.println("<button onclick='location.reload()'>🔄 Actualizar Pacientes</button>");
+        out.println("<button onclick='forcePoll()'>⚡ Forzar Polling</button>");
         out.println("<button onclick='processPatients()'>👥 Procesar Pacientes</button>");
         out.println("<button onclick='viewQueueStatus()'>📊 Estado de Cola</button>");
         out.println("</div>");
         
         // DEBUGGING: Mostrar JSON crudo de la cola usando WebListener
         out.println("<div class='messages-box'>");
-        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (WebListener JMS)</h3>");
+        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (Polling Manual)</h3>");
         
         try {
             // Leer mensaje usando WebListener
@@ -101,7 +102,7 @@ public class HelloServlet extends HttpServlet {
             
             if (rawMessage != null && !rawMessage.trim().isEmpty()) {
                 out.println("<div style='background-color: #e7f3ff; padding: 15px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>📄 JSON Leído de la Cola (WebListener):</strong><br/>");
+                out.println("<strong>📄 JSON Leído de la Cola (Polling):</strong><br/>");
                 out.println("<pre style='background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;'>" + rawMessage + "</pre>");
                 out.println("</div>");
                 
@@ -110,21 +111,21 @@ public class HelloServlet extends HttpServlet {
                 out.println("<strong>📊 Información del Mensaje:</strong><br/>");
                 out.println("📏 Longitud: " + rawMessage.length() + " caracteres<br/>");
                 out.println("📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "<br/>");
-                out.println("🔧 Método: WebListener JMS<br/>");
+                out.println("🔧 Método: Polling Manual<br/>");
                 out.println("📡 Estado: " + webListenerService.getListenerStatus() + "<br/>");
                 out.println("</div>");
                 
             } else {
                 out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>❌ No hay mensajes en el WebListener</strong><br/>");
-                out.println("El WebListener no ha recibido mensajes aún o están vacíos.");
+                out.println("<strong>❌ No hay mensajes en el Polling Listener</strong><br/>");
+                out.println("El Polling Listener no ha encontrado mensajes aún o están vacíos.");
                 out.println("<br/>📡 Estado: " + webListenerService.getListenerStatus());
                 out.println("</div>");
             }
             
         } catch (Exception e) {
             out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-            out.println("<strong>❌ Error leyendo del WebListener:</strong><br/>");
+            out.println("<strong>❌ Error leyendo del Polling Listener:</strong><br/>");
             out.println("Error: " + e.getMessage() + "<br/>");
             out.println("</div>");
         }
@@ -135,7 +136,7 @@ public class HelloServlet extends HttpServlet {
         out.println("<div class='messages-box'>");
         out.println("<h3>📊 Estado del Sistema</h3>");
         out.println("<p>🔧 Parser: COMPLETAMENTE DESHABILITADO</p>");
-        out.println("<p>🔍 Modo: WebListener JMS</p>");
+        out.println("<p>🔍 Modo: Polling Manual</p>");
         out.println("<p>📡 Estado: " + webListenerService.getListenerStatus() + "</p>");
         out.println("<p>📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</p>");
         out.println("</div>");
@@ -150,8 +151,11 @@ public class HelloServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         
         if ("processPatients".equals(action)) {
-            // Procesamiento deshabilitado - solo WebListener
-            out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo WebListener activo\"}");
+            // Procesamiento deshabilitado - solo Polling
+            out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo Polling activo\"}");
+        } else if ("forcePoll".equals(action)) {
+            webListenerService.forcePoll();
+            out.println("{\"success\": true, \"message\": \"Polling forzado exitosamente\"}");
         } else if ("getSummary".equals(action)) {
             String summary = webListenerService.getListenerStatus();
             out.println("{\"success\": true, \"summary\": \"" + summary.replace("\"", "\\\"") + "\"}");

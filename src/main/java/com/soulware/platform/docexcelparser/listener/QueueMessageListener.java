@@ -2,92 +2,130 @@ package com.soulware.platform.docexcelparser.listener;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import jakarta.ejb.ActivationConfigProperty;
-import jakarta.ejb.MessageDriven;
-import jakarta.jms.*;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import com.soulware.platform.docexcelparser.config.JMSConfig;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
- * WebListener para leer mensajes directamente de la cola JMS
- * Este listener lee mensajes de excel.input.queue y los almacena para consulta
+ * Servicio de polling manual para leer mensajes de la cola JMS
+ * Este servicio hace polling periódico de la cola en lugar de usar @MessageDriven
  */
-@MessageDriven(
-    activationConfig = {
-        @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "jakarta.jms.Queue"),
-        @ActivationConfigProperty(propertyName = "destination", propertyValue = "excel.input.queue"),
-        @ActivationConfigProperty(propertyName = "acknowledgeMode", propertyValue = "Auto-acknowledge")
-    }
-)
-public class QueueMessageListener implements MessageListener {
+@ApplicationScoped
+public class QueueMessageListener {
+    
+    @Inject
+    private JMSConfig jmsConfig;
     
     // Almacenar mensajes leídos para consulta
     private static final Map<String, String> receivedMessages = new ConcurrentHashMap<>();
     private static final List<String> messageHistory = new ArrayList<>();
     
+    private ScheduledExecutorService scheduler;
+    private volatile boolean isRunning = false;
+    
     @PostConstruct
     public void init() {
-        System.out.println("=== QUEUE MESSAGE LISTENER INICIALIZADO ===");
+        System.out.println("=== QUEUE MESSAGE LISTENER INICIALIZADO (POLLING) ===");
         System.out.println("Cola: excel.input.queue");
-        System.out.println("Modo: Lectura directa JMS");
+        System.out.println("Modo: Polling manual cada 5 segundos");
         System.out.println("==========================================");
+        
+        // Iniciar polling cada 5 segundos
+        startPolling();
     }
     
     @PreDestroy
     public void cleanup() {
         System.out.println("=== QUEUE MESSAGE LISTENER DESTRUIDO ===");
+        stopPolling();
     }
     
-    @Override
-    public void onMessage(Message message) {
+    /**
+     * Inicia el polling de la cola
+     */
+    private void startPolling() {
+        if (isRunning) {
+            return;
+        }
+        
+        isRunning = true;
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                pollQueue();
+            } catch (Exception e) {
+                System.err.println("Error en polling de cola: " + e.getMessage());
+            }
+        }, 0, 5, TimeUnit.SECONDS);
+        
+        System.out.println("Polling iniciado - verificando cola cada 5 segundos");
+    }
+    
+    /**
+     * Detiene el polling de la cola
+     */
+    private void stopPolling() {
+        if (!isRunning) {
+            return;
+        }
+        
+        isRunning = false;
+        if (scheduler != null) {
+            scheduler.shutdown();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        System.out.println("Polling detenido");
+    }
+    
+    /**
+     * Hace polling de la cola para obtener nuevos mensajes
+     */
+    private void pollQueue() {
         try {
-            System.out.println("=== MENSAJE RECIBIDO EN LISTENER ===");
-            System.out.println("Tipo de mensaje: " + message.getClass().getSimpleName());
-            System.out.println("Message ID: " + message.getJMSMessageID());
-            System.out.println("Timestamp: " + message.getJMSTimestamp());
+            System.out.println("=== POLLING COLA ===");
             
-            String messageContent = null;
+            // Usar el método básico de lectura
+            String message = jmsConfig.readBasicMessageFromQueue();
             
-            if (message instanceof TextMessage) {
-                TextMessage textMessage = (TextMessage) message;
-                messageContent = textMessage.getText();
-                System.out.println("Contenido (TextMessage): " + messageContent.length() + " caracteres");
-            } else if (message instanceof ObjectMessage) {
-                ObjectMessage objectMessage = (ObjectMessage) message;
-                Object obj = objectMessage.getObject();
-                messageContent = obj.toString();
-                System.out.println("Contenido (ObjectMessage): " + messageContent.length() + " caracteres");
-            } else if (message instanceof BytesMessage) {
-                BytesMessage bytesMessage = (BytesMessage) message;
-                byte[] bytes = new byte[(int) bytesMessage.getBodyLength()];
-                bytesMessage.readBytes(bytes);
-                messageContent = new String(bytes);
-                System.out.println("Contenido (BytesMessage): " + messageContent.length() + " caracteres");
+            if (message != null && !message.trim().isEmpty()) {
+                System.out.println("Mensaje encontrado en polling: " + message.length() + " caracteres");
+                
+                // Generar ID único para el mensaje
+                String messageId = "poll-" + System.currentTimeMillis();
+                
+                // Almacenar mensaje para consulta
+                receivedMessages.put(messageId, message);
+                messageHistory.add(message);
+                
+                // Mantener solo los últimos 10 mensajes
+                if (messageHistory.size() > 10) {
+                    messageHistory.remove(0);
+                }
+                
+                System.out.println("Mensaje almacenado con ID: " + messageId);
+                System.out.println("Total mensajes almacenados: " + receivedMessages.size());
             } else {
-                messageContent = message.toString();
-                System.out.println("Contenido (toString): " + messageContent.length() + " caracteres");
+                System.out.println("No hay mensajes en la cola");
             }
-            
-            // Almacenar mensaje para consulta
-            String messageId = message.getJMSMessageID();
-            receivedMessages.put(messageId, messageContent);
-            messageHistory.add(messageContent);
-            
-            // Mantener solo los últimos 10 mensajes
-            if (messageHistory.size() > 10) {
-                messageHistory.remove(0);
-            }
-            
-            System.out.println("Mensaje almacenado con ID: " + messageId);
-            System.out.println("Total mensajes almacenados: " + receivedMessages.size());
-            System.out.println("==========================================");
             
         } catch (Exception e) {
-            System.err.println("Error procesando mensaje en listener: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Error en polling de cola: " + e.getMessage());
         }
     }
     
@@ -124,8 +162,8 @@ public class QueueMessageListener implements MessageListener {
      * @return String con información del estado
      */
     public static String getListenerStatus() {
-        return "Listener activo - Mensajes recibidos: " + receivedMessages.size() + 
-               " - Historial: " + messageHistory.size();
+        return "Listener activo (Polling) - Mensajes recibidos: " + receivedMessages.size() + 
+               " - Historial: " + messageHistory.size() + " - Polling cada 5 segundos";
     }
     
     /**
@@ -135,5 +173,13 @@ public class QueueMessageListener implements MessageListener {
         receivedMessages.clear();
         messageHistory.clear();
         System.out.println("=== MENSAJES LIMPIADOS DEL LISTENER ===");
+    }
+    
+    /**
+     * Fuerza un polling inmediato
+     */
+    public void forcePoll() {
+        System.out.println("=== POLLING FORZADO ===");
+        pollQueue();
     }
 }
