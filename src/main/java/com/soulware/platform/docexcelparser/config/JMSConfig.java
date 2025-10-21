@@ -657,13 +657,12 @@ public class JMSConfig {
         try {
             System.out.println("=== LEYENDO MENSAJE BÁSICO DE LA COLA ===");
             
-            // Método corregido: usar POST con readonly=true para leer sin consumir
-            String browseUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue&readonly=true";
+            // Método corregido: usar GET para leer mensajes sin consumir (BROWSE)
+            String browseUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue";
             URL url = new URL(browseUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
+            conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
-            conn.setRequestProperty("Content-Type", "application/json");
             
             // Autenticación básica
             String auth = "admin:admin";
