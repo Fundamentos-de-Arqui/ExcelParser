@@ -1,24 +1,24 @@
 package com.soulware.platform.docexcelparser.service;
 
-import com.soulware.platform.docexcelparser.listener.ActiveMQMessageListener;
+import com.soulware.platform.docexcelparser.listener.SimpleTestListener;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 /**
- * Servicio para obtener mensajes del ActiveMQMessageListener (JMS nativo)
- * Este servicio actúa como interfaz entre el servlet y el ActiveMQMessageListener
+ * Servicio para obtener mensajes del SimpleTestListener (Testing sin JMS)
+ * Este servicio actúa como interfaz entre el servlet y el SimpleTestListener
  */
 @ApplicationScoped
 public class WebListenerService {
     
     /**
-     * Obtiene el último mensaje recibido por el ActiveMQMessageListener
+     * Obtiene el último mensaje recibido por el SimpleTestListener
      * @return Contenido del último mensaje o null si no hay mensajes
      */
     public String getLastMessage() {
         try {
-            System.out.println("=== OBTENIENDO ÚLTIMO MENSAJE DEL ACTIVEMQ LISTENER ===");
-            String message = ActiveMQMessageListener.getLastMessage();
+            System.out.println("=== OBTENIENDO ÚLTIMO MENSAJE DEL TEST LISTENER ===");
+            String message = SimpleTestListener.getLastMessage();
             
             if (message != null) {
                 System.out.println("Mensaje obtenido: " + message.length() + " caracteres");
@@ -29,65 +29,65 @@ public class WebListenerService {
             }
             
         } catch (Exception e) {
-            System.err.println("Error obteniendo mensaje del ActiveMQMessageListener: " + e.getMessage());
+            System.err.println("Error obteniendo mensaje del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
     
     /**
-     * Obtiene todos los mensajes almacenados en el ActiveMQMessageListener
+     * Obtiene todos los mensajes almacenados en el SimpleTestListener
      * @return Lista de todos los mensajes recibidos
      */
     public List<String> getAllMessages() {
         try {
-            System.out.println("=== OBTENIENDO TODOS LOS MENSAJES DEL ACTIVEMQ LISTENER ===");
-            List<String> messages = ActiveMQMessageListener.getAllMessages();
+            System.out.println("=== OBTENIENDO TODOS LOS MENSAJES DEL TEST LISTENER ===");
+            List<String> messages = SimpleTestListener.getAllMessages();
             System.out.println("Total mensajes obtenidos: " + messages.size());
             return messages;
             
         } catch (Exception e) {
-            System.err.println("Error obteniendo mensajes del ActiveMQMessageListener: " + e.getMessage());
+            System.err.println("Error obteniendo mensajes del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
             return List.of();
         }
     }
     
     /**
-     * Obtiene el estado del ActiveMQMessageListener
+     * Obtiene el estado del SimpleTestListener
      * @return String con información del estado
      */
     public String getListenerStatus() {
         try {
-            return ActiveMQMessageListener.getListenerStatus();
+            return SimpleTestListener.getListenerStatus();
         } catch (Exception e) {
             return "Error obteniendo estado del listener: " + e.getMessage();
         }
     }
     
     /**
-     * Limpia todos los mensajes almacenados en el ActiveMQMessageListener
+     * Limpia todos los mensajes almacenados en el SimpleTestListener
      */
     public void clearMessages() {
         try {
-            System.out.println("=== LIMPIANDO MENSAJES DEL ACTIVEMQ LISTENER ===");
-            ActiveMQMessageListener.clearMessages();
+            System.out.println("=== LIMPIANDO MENSAJES DEL TEST LISTENER ===");
+            SimpleTestListener.clearMessages();
         } catch (Exception e) {
-            System.err.println("Error limpiando mensajes del ActiveMQMessageListener: " + e.getMessage());
+            System.err.println("Error limpiando mensajes del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
     /**
-     * Verifica si hay mensajes disponibles en el ActiveMQMessageListener
+     * Verifica si hay mensajes disponibles en el SimpleTestListener
      * @return true si hay mensajes disponibles, false en caso contrario
      */
     public boolean hasMessages() {
         try {
-            String lastMessage = ActiveMQMessageListener.getLastMessage();
+            String lastMessage = SimpleTestListener.getLastMessage();
             return lastMessage != null && !lastMessage.trim().isEmpty();
         } catch (Exception e) {
-            System.err.println("Error verificando mensajes del ActiveMQMessageListener: " + e.getMessage());
+            System.err.println("Error verificando mensajes del SimpleTestListener: " + e.getMessage());
             return false;
         }
     }
@@ -98,7 +98,7 @@ public class WebListenerService {
      */
     public boolean isListenerInitialized() {
         try {
-            return ActiveMQMessageListener.isInitialized();
+            return SimpleTestListener.isInitialized();
         } catch (Exception e) {
             System.err.println("Error verificando estado del listener: " + e.getMessage());
             return false;
