@@ -110,8 +110,10 @@ public class QueuePollingListener implements ServletContextListener {
             System.out.println("=== TIMESTAMP: " + java.time.LocalDateTime.now() + " ===");
             System.out.println("==========================================");
             
-            // Usar el método real de lectura
-            String message = jmsConfig.readRealMessageFromQueue();
+            // Usar el método básico de lectura (más rápido)
+            System.out.println("Iniciando lectura básica de cola...");
+            String message = jmsConfig.readBasicMessageFromQueue();
+            System.out.println("Lectura básica completada. Resultado: " + (message != null ? message.length() + " caracteres" : "null"));
             
             if (message != null && !message.trim().isEmpty()) {
                 System.out.println("==========================================");
@@ -142,6 +144,7 @@ public class QueuePollingListener implements ServletContextListener {
             System.err.println("==========================================");
             System.err.println("=== ERROR EN POLLING AUTOMÁTICO ===");
             System.err.println("=== ERROR: " + e.getMessage() + " ===");
+            System.err.println("=== TIPO DE ERROR: " + e.getClass().getSimpleName() + " ===");
             System.err.println("==========================================");
             e.printStackTrace();
         }
