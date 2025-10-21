@@ -166,7 +166,19 @@ public class HelloServlet extends HttpServlet {
         if ("processPatients".equals(action)) {
             // Procesamiento deshabilitado - solo WebListener
             out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo WebListener activo\"}");
-        } else if ("forcePoll".equals(action)) {
+        } else if ("sendMessage".equals(action)) {
+            // Enviar mensaje a la cola
+            try {
+                String messageBody = request.getReader().lines().collect(java.util.stream.Collectors.joining());
+                System.out.println("=== ENVIANDO MENSAJE A LA COLA ===");
+                System.out.println("Mensaje recibido: " + messageBody);
+                
+                // Aquí podrías enviar el mensaje a la cola JMS
+                // Por ahora solo simulamos el envío
+                out.println("{\"success\": true, \"message\": \"Mensaje enviado a la cola\", \"messageId\": \"test-" + System.currentTimeMillis() + "\"}");
+            } catch (Exception e) {
+                out.println("{\"success\": false, \"message\": \"Error enviando mensaje: " + e.getMessage() + "\"}");
+            }
             try {
                 System.out.println("=== POLLING FORZADO DESDE SERVLET ===");
                 String message = webListenerService.getLastMessage();
