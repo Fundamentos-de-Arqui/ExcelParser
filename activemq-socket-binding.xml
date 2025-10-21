@@ -1,0 +1,1 @@
+        <socket-binding name="activemq-socket-binding" port="61616"/>
