@@ -102,7 +102,7 @@ public class HelloServlet extends HttpServlet {
         try {
             // Leer mensaje usando polling directo
             System.out.println("=== INICIANDO POLLING DIRECTO DESDE SERVLET ===");
-            String rawMessage = jmsConfig.readBasicMessageFromQueue();
+            String rawMessage = jmsConfig.readRealMessageFromQueue();
             
             if (rawMessage != null && !rawMessage.trim().isEmpty()) {
                 System.out.println("=== MENSAJE ENCONTRADO EN POLLING DIRECTO ===");
@@ -169,7 +169,7 @@ public class HelloServlet extends HttpServlet {
         } else if ("forcePoll".equals(action)) {
             try {
                 System.out.println("=== POLLING FORZADO DESDE SERVLET ===");
-                String message = jmsConfig.readBasicMessageFromQueue();
+                String message = jmsConfig.readRealMessageFromQueue();
                 if (message != null && !message.trim().isEmpty()) {
                     out.println("{\"success\": true, \"message\": \"Polling forzado exitosamente - Mensaje encontrado: " + message.length() + " caracteres\"}");
                 } else {
