@@ -113,6 +113,8 @@ public class RealJMSListener implements ServletContextListener {
                 consumer = session.createConsumer(queue);
                 
                 // Set message listener
+                logger.info("Setting MessageListener...");
+                System.out.println("Setting MessageListener...");
                 consumer.setMessageListener(new jakarta.jms.MessageListener() {
                     @Override
                     public void onMessage(jakarta.jms.Message message) {
