@@ -88,11 +88,6 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.15.2</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.activemq</groupId>
-            <artifactId>activemq-artemis-jakarta-client</artifactId>
-            <version>2.32.0</version>
-        </dependency>
 
     <build>
         <plugins>

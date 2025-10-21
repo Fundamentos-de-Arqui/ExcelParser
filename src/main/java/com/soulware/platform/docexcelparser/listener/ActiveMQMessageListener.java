@@ -1,7 +1,5 @@
 package com.soulware.platform.docexcelparser.listener;
 
-import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
-
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
@@ -15,6 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 /**
  * ActiveMQ listener usando ServletContextListener y MessageListener
@@ -56,10 +57,12 @@ public class ActiveMQMessageListener implements ServletContextListener, MessageL
                 // Cerrar conexiones existentes si las hay
                 closeExistingConnections();
                 
-                // Create connection factory
-                logger.info("Creating ActiveMQ connection factory...");
-                System.out.println("Creating ActiveMQ connection factory...");
-                ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:61616");
+                // Usar JNDI lookup para obtener ConnectionFactory
+                logger.info("Looking up ConnectionFactory via JNDI...");
+                System.out.println("Looking up ConnectionFactory via JNDI...");
+                
+                Context context = new InitialContext();
+                ConnectionFactory connectionFactory = (ConnectionFactory) context.lookup("java:/ConnectionFactory");
                 
                 // Create connection
                 logger.info("Creating connection...");
