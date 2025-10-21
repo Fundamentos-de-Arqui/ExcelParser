@@ -32,9 +32,11 @@ public class QueueMessageListener {
     
     @PostConstruct
     public void init() {
-        System.out.println("=== QUEUE MESSAGE LISTENER INICIALIZADO (POLLING) ===");
-        System.out.println("Cola: excel.input.queue");
-        System.out.println("Modo: Polling manual cada 5 segundos");
+        System.out.println("==========================================");
+        System.out.println("=== QUEUE MESSAGE LISTENER INICIALIZADO ===");
+        System.out.println("=== MODO: POLLING MANUAL CADA 5 SEGUNDOS ===");
+        System.out.println("=== COLA: excel.input.queue ===");
+        System.out.println("=== TIMESTAMP: " + java.time.LocalDateTime.now() + " ===");
         System.out.println("==========================================");
         
         // Iniciar polling cada 5 segundos
@@ -98,13 +100,20 @@ public class QueueMessageListener {
      */
     private void pollQueue() {
         try {
-            System.out.println("=== POLLING COLA ===");
+            System.out.println("==========================================");
+            System.out.println("=== INICIANDO POLLING DE COLA ===");
+            System.out.println("=== TIMESTAMP: " + java.time.LocalDateTime.now() + " ===");
+            System.out.println("==========================================");
             
             // Usar el método básico de lectura
             String message = jmsConfig.readBasicMessageFromQueue();
             
             if (message != null && !message.trim().isEmpty()) {
-                System.out.println("Mensaje encontrado en polling: " + message.length() + " caracteres");
+                System.out.println("==========================================");
+                System.out.println("=== MENSAJE ENCONTRADO EN POLLING ===");
+                System.out.println("=== LONGITUD: " + message.length() + " caracteres ===");
+                System.out.println("=== PRIMEROS 100 CHARS: " + message.substring(0, Math.min(100, message.length())) + " ===");
+                System.out.println("==========================================");
                 
                 // Generar ID único para el mensaje
                 String messageId = "poll-" + System.currentTimeMillis();
@@ -121,11 +130,15 @@ public class QueueMessageListener {
                 System.out.println("Mensaje almacenado con ID: " + messageId);
                 System.out.println("Total mensajes almacenados: " + receivedMessages.size());
             } else {
-                System.out.println("No hay mensajes en la cola");
+                System.out.println("=== NO HAY MENSAJES EN LA COLA ===");
             }
             
         } catch (Exception e) {
-            System.err.println("Error en polling de cola: " + e.getMessage());
+            System.err.println("==========================================");
+            System.err.println("=== ERROR EN POLLING DE COLA ===");
+            System.err.println("=== ERROR: " + e.getMessage() + " ===");
+            System.err.println("==========================================");
+            e.printStackTrace();
         }
     }
     
