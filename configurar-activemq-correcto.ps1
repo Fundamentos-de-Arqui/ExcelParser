@@ -1,26 +1,28 @@
-# Script simple para agregar configuración de ActiveMQ
-Write-Host "Agregando configuración de ActiveMQ..."
+# Script para agregar configuración de ActiveMQ en el lugar correcto
+Write-Host "Agregando configuración de ActiveMQ en el lugar correcto..."
 
 $configFile = "C:\Users\suiny\Desktop\wildfly-38.0.0.Final\standalone\configuration\standalone.xml"
 
 # Leer todo el contenido del archivo
 $content = Get-Content $configFile -Raw
 
-# Configuración del conector de ActiveMQ
-$connectorConfig = @"
+# Configuración de ActiveMQ que necesitamos agregar
+$activemqConfig = @"
                 <connector name="activemq-connector" socket-binding="activemq-socket-binding"/>
 "@
 
 # Buscar la línea que contiene "</in-vm-connector>" y agregar después
 $pattern = '(</in-vm-connector>)'
-$replacement = "`$1`n$connectorConfig"
+$replacement = "`$1`n$activemqConfig"
 
 $newContent = $content -replace $pattern, $replacement
 
 # Guardar el archivo modificado
 $newContent | Out-File $configFile -Encoding UTF8 -NoNewline
 
-Write-Host "Conector de ActiveMQ agregado!"
+Write-Host "✅ Conector de ActiveMQ agregado en el lugar correcto!"
+Write-Host ""
+Write-Host "Ahora agregando el connection factory externo..."
 
 # Configuración del connection factory externo
 $connectionFactoryConfig = @"
@@ -36,7 +38,9 @@ $newContent = $newContent -replace $pattern2, $replacement2
 # Guardar el archivo modificado
 $newContent | Out-File $configFile -Encoding UTF8 -NoNewline
 
-Write-Host "Connection factory externo agregado!"
+Write-Host "✅ Connection factory externo agregado!"
+Write-Host ""
+Write-Host "Ahora agregando la cola externa..."
 
 # Configuración de la cola externa
 $queueConfig = @"
@@ -52,5 +56,14 @@ $newContent = $newContent -replace $pattern3, $replacement3
 # Guardar el archivo modificado
 $newContent | Out-File $configFile -Encoding UTF8 -NoNewline
 
-Write-Host "Cola externa agregada!"
-Write-Host "Configuración completa de ActiveMQ agregada!"
+Write-Host "✅ Cola externa agregada!"
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "CONFIGURACIÓN COMPLETA DE ACTIVEMQ"
+Write-Host "=========================================="
+Write-Host "✅ Socket binding: activemq-socket-binding (puerto 61616)"
+Write-Host "✅ Connector: activemq-connector"
+Write-Host "✅ Connection Factory: activemq-external"
+Write-Host "✅ Queue: excel-input-queue"
+Write-Host ""
+Write-Host "Ahora puedes reiniciar WildFly para aplicar los cambios."
