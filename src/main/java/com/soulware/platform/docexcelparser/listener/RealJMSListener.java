@@ -43,7 +43,7 @@ public class RealJMSListener implements ServletContextListener {
             
             System.out.println("==========================================");
             System.out.println("=== REAL JMS LISTENER STARTING ===");
-            System.out.println("=== COLA: excel.input.queue ===");
+            System.out.println("=== COLA: excel-input-queue ===");
             System.out.println("=== TIMESTAMP: " + java.time.LocalDateTime.now() + " ===");
             System.out.println("==========================================");
             logger.info("=== RealJMSListener STARTING ===");
@@ -94,9 +94,9 @@ public class RealJMSListener implements ServletContextListener {
                 session = connection.createSession(false, jakarta.jms.Session.AUTO_ACKNOWLEDGE);
                 
                 // Get reference to existing queue
-                logger.info("Getting reference to existing queue: excel.input.queue");
-                System.out.println("Getting reference to existing queue: excel.input.queue");
-                jakarta.jms.Queue queue = session.createQueue("excel.input.queue");
+                logger.info("Getting reference to existing queue: excel-input-queue");
+                System.out.println("Getting reference to existing queue: excel-input-queue");
+                jakarta.jms.Queue queue = session.createQueue("excel-input-queue");
                 
                 // Create consumer
                 logger.info("Creating consumer...");
@@ -167,10 +167,10 @@ public class RealJMSListener implements ServletContextListener {
                 
                 System.out.println("==========================================");
                 System.out.println("=== SUCCESS: REAL JMS LISTENER CONNECTED ===");
-                System.out.println("=== COLA: excel.input.queue ===");
+                System.out.println("=== COLA: excel-input-queue ===");
                 System.out.println("=== LISTENING FOR REAL MESSAGES... ===");
                 System.out.println("==========================================");
-                logger.info("SUCCESS: RealJMSListener connected to excel.input.queue");
+                logger.info("SUCCESS: RealJMSListener connected to excel-input-queue");
                 
             } catch (Exception e) {
                 System.err.println("==========================================");
