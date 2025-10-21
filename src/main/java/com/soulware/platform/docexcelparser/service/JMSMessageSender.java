@@ -42,8 +42,17 @@ public class JMSMessageSender {
             // Crear sesión
             session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             
-            // Crear cola
-            Queue queue = session.createQueue(QUEUE_NAME);
+            // Obtener referencia a la cola existente usando JNDI lookup
+            Queue queue;
+            try {
+                queue = (Queue) context.lookup("java:/jms/queue/excel-input-queue");
+                logger.info("SUCCESS: Found existing queue via JNDI for sending");
+                System.out.println("SUCCESS: Found existing queue via JNDI for sending");
+            } catch (NamingException e) {
+                logger.warning("Failed to lookup queue via JNDI, creating new queue: " + e.getMessage());
+                System.out.println("WARNING: Failed to lookup queue via JNDI, creating new queue: " + e.getMessage());
+                queue = session.createQueue(QUEUE_NAME);
+            }
             
             // Crear producer
             producer = session.createProducer(queue);

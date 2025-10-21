@@ -93,10 +93,19 @@ public class RealJMSListener implements ServletContextListener {
                 System.out.println("Creating session...");
                 session = connection.createSession(false, jakarta.jms.Session.AUTO_ACKNOWLEDGE);
                 
-                // Get reference to existing queue
-                logger.info("Getting reference to existing queue: excel-input-queue");
-                System.out.println("Getting reference to existing queue: excel-input-queue");
-                jakarta.jms.Queue queue = session.createQueue("excel-input-queue");
+                // Get reference to existing queue using JNDI lookup
+                logger.info("Looking up existing queue via JNDI: java:/jms/queue/excel-input-queue");
+                System.out.println("Looking up existing queue via JNDI: java:/jms/queue/excel-input-queue");
+                jakarta.jms.Queue queue;
+                try {
+                    queue = (jakarta.jms.Queue) context.lookup("java:/jms/queue/excel-input-queue");
+                    logger.info("SUCCESS: Found existing queue via JNDI");
+                    System.out.println("SUCCESS: Found existing queue via JNDI");
+                } catch (javax.naming.NamingException e) {
+                    logger.warning("Failed to lookup queue via JNDI, creating new queue: " + e.getMessage());
+                    System.out.println("WARNING: Failed to lookup queue via JNDI, creating new queue: " + e.getMessage());
+                    queue = session.createQueue("excel-input-queue");
+                }
                 
                 // Create consumer
                 logger.info("Creating consumer...");
