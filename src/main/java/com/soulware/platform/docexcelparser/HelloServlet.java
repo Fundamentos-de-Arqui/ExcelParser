@@ -79,8 +79,8 @@ public class HelloServlet extends HttpServlet {
         // Información de la cola
         out.println("<div class='info-box'>");
         out.println("<h3>📊 Información de la Cola</h3>");
-        out.println("<p><strong>📡 Simple Test Listener - Modo Testing</strong></p>");
-        out.println("<p><strong>🔧 Estado: Sin JMS (Testing)</strong></p>");
+        out.println("<p><strong>📡 Real JMS Listener + Test Fallback</strong></p>");
+        out.println("<p><strong>🔧 Estado: " + (webListenerService.isRealJMSInitialized() ? "JMS REAL ACTIVO" : "MODO TEST") + "</strong></p>");
         out.println("<p class='timestamp'>Última actualización: " + 
                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</p>");
         out.println("</div>");
@@ -93,9 +93,9 @@ public class HelloServlet extends HttpServlet {
         out.println("<button onclick='viewQueueStatus()'>📊 Estado de Cola</button>");
         out.println("</div>");
         
-               // DEBUGGING: Mostrar JSON crudo de la cola usando Simple Test Listener
+               // DEBUGGING: Mostrar JSON crudo de la cola usando listener activo
                out.println("<div class='messages-box'>");
-               out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (Simple Test Listener)</h3>");
+               out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (" + (webListenerService.isRealJMSInitialized() ? "Real JMS Listener" : "Test Listener") + ")</h3>");
         
         try {
             // Leer mensaje usando WebListener
