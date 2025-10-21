@@ -18,6 +18,9 @@ public class HelloServlet extends HttpServlet {
     
     @Inject
     private WebListenerService webListenerService;
+    
+    @Inject
+    private JMSMessageSender jmsMessageSender;
 
     public void init() {
         message = "DocExcelParser - Procesador de Pacientes desde Cola ActiveMQ";
@@ -167,15 +170,20 @@ public class HelloServlet extends HttpServlet {
             // Procesamiento deshabilitado - solo WebListener
             out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo WebListener activo\"}");
         } else if ("sendMessage".equals(action)) {
-            // Enviar mensaje a la cola
+            // Enviar mensaje REAL a la cola JMS
             try {
                 String messageBody = request.getReader().lines().collect(java.util.stream.Collectors.joining());
-                System.out.println("=== ENVIANDO MENSAJE A LA COLA ===");
+                System.out.println("=== ENVIANDO MENSAJE REAL A LA COLA JMS ===");
                 System.out.println("Mensaje recibido: " + messageBody);
                 
-                // Aquí podrías enviar el mensaje a la cola JMS
-                // Por ahora solo simulamos el envío
-                out.println("{\"success\": true, \"message\": \"Mensaje enviado a la cola\", \"messageId\": \"test-" + System.currentTimeMillis() + "\"}");
+                // Enviar mensaje REAL a la cola JMS
+                boolean success = jmsMessageSender.sendMessageToQueue(messageBody);
+                
+                if (success) {
+                    out.println("{\"success\": true, \"message\": \"Mensaje enviado REALMENTE a la cola JMS\", \"messageId\": \"real-" + System.currentTimeMillis() + "\"}");
+                } else {
+                    out.println("{\"success\": false, \"message\": \"Error enviando mensaje a la cola JMS\"}");
+                }
             } catch (Exception e) {
                 out.println("{\"success\": false, \"message\": \"Error enviando mensaje: " + e.getMessage() + "\"}");
             }
