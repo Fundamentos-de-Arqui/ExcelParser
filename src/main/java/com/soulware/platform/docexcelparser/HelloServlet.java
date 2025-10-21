@@ -1,7 +1,7 @@
 package com.soulware.platform.docexcelparser;
 
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
-import com.soulware.platform.docexcelparser.service.QueueReaderService;
+import com.soulware.platform.docexcelparser.service.WebListenerService;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.*;
@@ -17,7 +17,7 @@ public class HelloServlet extends HttpServlet {
     private String message;
     
     @Inject
-    private QueueReaderService queueReaderService;
+    private WebListenerService webListenerService;
 
     public void init() {
         message = "DocExcelParser - Procesador de Pacientes desde Cola ActiveMQ";
@@ -79,7 +79,7 @@ public class HelloServlet extends HttpServlet {
         // Información de la cola
         out.println("<div class='info-box'>");
         out.println("<h3>📊 Información de la Cola</h3>");
-        out.println("<p><strong>" + queueReaderService.getQueueInfo() + "</strong></p>");
+        out.println("<p><strong>📡 WebListener JMS - Cola: excel.input.queue</strong></p>");
         out.println("<p class='timestamp'>Última actualización: " + 
                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</p>");
         out.println("</div>");
@@ -91,17 +91,17 @@ public class HelloServlet extends HttpServlet {
         out.println("<button onclick='viewQueueStatus()'>📊 Estado de Cola</button>");
         out.println("</div>");
         
-        // DEBUGGING: Mostrar JSON crudo de la cola SIN PROCESAMIENTO
+        // DEBUGGING: Mostrar JSON crudo de la cola usando WebListener
         out.println("<div class='messages-box'>");
-        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (Parser DESHABILITADO)</h3>");
+        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (WebListener JMS)</h3>");
         
         try {
-            // Leer mensaje crudo directamente usando método simple
-            String rawMessage = queueReaderService.readSimpleMessageFromQueue();
+            // Leer mensaje usando WebListener
+            String rawMessage = webListenerService.getLastMessage();
             
             if (rawMessage != null && !rawMessage.trim().isEmpty()) {
                 out.println("<div style='background-color: #e7f3ff; padding: 15px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>📄 JSON Leído de la Cola:</strong><br/>");
+                out.println("<strong>📄 JSON Leído de la Cola (WebListener):</strong><br/>");
                 out.println("<pre style='background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;'>" + rawMessage + "</pre>");
                 out.println("</div>");
                 
@@ -110,19 +110,21 @@ public class HelloServlet extends HttpServlet {
                 out.println("<strong>📊 Información del Mensaje:</strong><br/>");
                 out.println("📏 Longitud: " + rawMessage.length() + " caracteres<br/>");
                 out.println("📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "<br/>");
-                out.println("🔧 Parser: DESHABILITADO<br/>");
+                out.println("🔧 Método: WebListener JMS<br/>");
+                out.println("📡 Estado: " + webListenerService.getListenerStatus() + "<br/>");
                 out.println("</div>");
                 
             } else {
                 out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>❌ No se pudo leer mensaje de la cola</strong><br/>");
-                out.println("El mensaje está vacío o no se pudo acceder a la cola.");
+                out.println("<strong>❌ No hay mensajes en el WebListener</strong><br/>");
+                out.println("El WebListener no ha recibido mensajes aún o están vacíos.");
+                out.println("<br/>📡 Estado: " + webListenerService.getListenerStatus());
                 out.println("</div>");
             }
             
         } catch (Exception e) {
             out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-            out.println("<strong>❌ Error leyendo la cola:</strong><br/>");
+            out.println("<strong>❌ Error leyendo del WebListener:</strong><br/>");
             out.println("Error: " + e.getMessage() + "<br/>");
             out.println("</div>");
         }
@@ -133,7 +135,8 @@ public class HelloServlet extends HttpServlet {
         out.println("<div class='messages-box'>");
         out.println("<h3>📊 Estado del Sistema</h3>");
         out.println("<p>🔧 Parser: COMPLETAMENTE DESHABILITADO</p>");
-        out.println("<p>🔍 Modo: SOLO LECTURA DE COLA</p>");
+        out.println("<p>🔍 Modo: WebListener JMS</p>");
+        out.println("<p>📡 Estado: " + webListenerService.getListenerStatus() + "</p>");
         out.println("<p>📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</p>");
         out.println("</div>");
         
@@ -147,17 +150,13 @@ public class HelloServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         
         if ("processPatients".equals(action)) {
-            List<Map<String, Object>> processedPatients = queueReaderService.processQueueMessages();
-            if (!processedPatients.isEmpty()) {
-                out.println("{\"success\": true, \"count\": " + processedPatients.size() + ", \"message\": \"Pacientes procesados exitosamente\"}");
-            } else {
-                out.println("{\"success\": false, \"message\": \"No hay pacientes para procesar\"}");
-            }
+            // Procesamiento deshabilitado - solo WebListener
+            out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo WebListener activo\"}");
         } else if ("getSummary".equals(action)) {
-            String summary = queueReaderService.getProcessedPatientsSummary();
+            String summary = webListenerService.getListenerStatus();
             out.println("{\"success\": true, \"summary\": \"" + summary.replace("\"", "\\\"") + "\"}");
         } else if ("getQueueInfo".equals(action)) {
-            String queueInfo = queueReaderService.getQueueInfo();
+            String queueInfo = webListenerService.getListenerStatus();
             out.println("{\"success\": true, \"queueInfo\": \"" + queueInfo + "\"}");
         }
     }

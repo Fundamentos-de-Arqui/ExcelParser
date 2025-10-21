@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss xmlns="urn:jboss:1.0">
+    <!-- Configuración JMS para WildFly -->
+    <!-- Este archivo debe ser colocado en el directorio de configuración de WildFly -->
+    
+    <!-- Configuración del broker ActiveMQ -->
+    <subsystem xmlns="urn:jboss:domain:messaging-activemq:1.0">
+        <server name="default">
+            <!-- Configuración del broker -->
+            <security-setting name="#">
+                <role name="guest" send="true" consume="true" create-durable-queue="true" delete-durable-queue="true" create-non-durable-queue="true" delete-non-durable-queue="true"/>
+            </security-setting>
+            
+            <!-- Configuración de la cola -->
+            <jms-queue name="excel.input.queue" entries="queue/excel.input.queue java:jboss/exported/jms/queue/excel.input.queue"/>
+            
+            <!-- Configuración del connection factory -->
+            <connection-factory name="InVmConnectionFactory" entries="java:/ConnectionFactory" connectors="in-vm"/>
+            <connection-factory name="RemoteConnectionFactory" entries="java:jboss/exported/jms/RemoteConnectionFactory" connectors="http-connector"/>
+            
+            <!-- Pool de conexiones -->
+            <pooled-connection-factory name="activemq-ra" entries="java:/JmsXA java:jboss/DefaultJMSConnectionFactory" connectors="in-vm" transaction="xa"/>
+        </server>
+    </subsystem>
+</jboss>
