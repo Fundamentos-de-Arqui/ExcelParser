@@ -90,8 +90,8 @@
         </dependency>
         <dependency>
             <groupId>org.apache.activemq</groupId>
-            <artifactId>activemq-client</artifactId>
-            <version>5.18.2</version>
+            <artifactId>activemq-artemis-jakarta-client</artifactId>
+            <version>2.32.0</version>
         </dependency>
 
     <build>
