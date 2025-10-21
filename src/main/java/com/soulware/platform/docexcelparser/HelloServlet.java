@@ -1,7 +1,7 @@
 package com.soulware.platform.docexcelparser;
 
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
-import com.soulware.platform.docexcelparser.service.WebListenerService;
+import com.soulware.platform.docexcelparser.config.JMSConfig;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.*;
@@ -16,8 +16,7 @@ import java.util.Map;
 public class HelloServlet extends HttpServlet {
     private String message;
     
-    @Inject
-    private WebListenerService webListenerService;
+    private JMSConfig jmsConfig;
 
     public void init() {
         message = "DocExcelParser - Procesador de Pacientes desde Cola ActiveMQ";
@@ -28,6 +27,10 @@ public class HelloServlet extends HttpServlet {
         System.out.println("Extracción de pacientes: ACTIVADO");
         System.out.println("Integración con cola: COMPLETA");
         System.out.println("=====================================");
+        
+        // Inicializar JMSConfig directamente
+        jmsConfig = new JMSConfig();
+        System.out.println("JMSConfig inicializado directamente");
     }
 
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -92,17 +95,22 @@ public class HelloServlet extends HttpServlet {
         out.println("<button onclick='viewQueueStatus()'>📊 Estado de Cola</button>");
         out.println("</div>");
         
-        // DEBUGGING: Mostrar JSON crudo de la cola usando WebListener
+        // DEBUGGING: Mostrar JSON crudo de la cola usando polling directo
         out.println("<div class='messages-box'>");
-        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (Polling Manual)</h3>");
+        out.println("<h3>🔍 DEBUG: JSON Crudo de la Cola (Polling Directo)</h3>");
         
         try {
-            // Leer mensaje usando WebListener
-            String rawMessage = webListenerService.getLastMessage();
+            // Leer mensaje usando polling directo
+            System.out.println("=== INICIANDO POLLING DIRECTO DESDE SERVLET ===");
+            String rawMessage = jmsConfig.readBasicMessageFromQueue();
             
             if (rawMessage != null && !rawMessage.trim().isEmpty()) {
+                System.out.println("=== MENSAJE ENCONTRADO EN POLLING DIRECTO ===");
+                System.out.println("Longitud: " + rawMessage.length() + " caracteres");
+                System.out.println("Primeros 100 chars: " + rawMessage.substring(0, Math.min(100, rawMessage.length())));
+                
                 out.println("<div style='background-color: #e7f3ff; padding: 15px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>📄 JSON Leído de la Cola (Polling):</strong><br/>");
+                out.println("<strong>📄 JSON Leído de la Cola (Polling Directo):</strong><br/>");
                 out.println("<pre style='background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;'>" + rawMessage + "</pre>");
                 out.println("</div>");
                 
@@ -111,21 +119,26 @@ public class HelloServlet extends HttpServlet {
                 out.println("<strong>📊 Información del Mensaje:</strong><br/>");
                 out.println("📏 Longitud: " + rawMessage.length() + " caracteres<br/>");
                 out.println("📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "<br/>");
-                out.println("🔧 Método: Polling Manual<br/>");
-                out.println("📡 Estado: " + webListenerService.getListenerStatus() + "<br/>");
+                out.println("🔧 Método: Polling Directo<br/>");
+                out.println("✅ Estado: MENSAJE ENCONTRADO<br/>");
                 out.println("</div>");
                 
             } else {
+                System.out.println("=== NO HAY MENSAJES EN LA COLA (POLLING DIRECTO) ===");
                 out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-                out.println("<strong>❌ No hay mensajes en el Polling Listener</strong><br/>");
-                out.println("El Polling Listener no ha encontrado mensajes aún o están vacíos.");
-                out.println("<br/>📡 Estado: " + webListenerService.getListenerStatus());
+                out.println("<strong>❌ No hay mensajes en la cola</strong><br/>");
+                out.println("El polling directo no encontró mensajes en la cola.");
+                out.println("<br/>🔧 Método: Polling Directo");
                 out.println("</div>");
             }
             
         } catch (Exception e) {
+            System.err.println("=== ERROR EN POLLING DIRECTO ===");
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            
             out.println("<div style='background-color: #f8d7da; padding: 10px; margin: 10px 0; border-radius: 4px;'>");
-            out.println("<strong>❌ Error leyendo del Polling Listener:</strong><br/>");
+            out.println("<strong>❌ Error en polling directo:</strong><br/>");
             out.println("Error: " + e.getMessage() + "<br/>");
             out.println("</div>");
         }
@@ -136,8 +149,8 @@ public class HelloServlet extends HttpServlet {
         out.println("<div class='messages-box'>");
         out.println("<h3>📊 Estado del Sistema</h3>");
         out.println("<p>🔧 Parser: COMPLETAMENTE DESHABILITADO</p>");
-        out.println("<p>🔍 Modo: Polling Manual</p>");
-        out.println("<p>📡 Estado: " + webListenerService.getListenerStatus() + "</p>");
+        out.println("<p>🔍 Modo: Polling Directo</p>");
+        out.println("<p>📡 Estado: Sin CDI - Polling directo desde servlet</p>");
         out.println("<p>📅 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</p>");
         out.println("</div>");
         
@@ -151,16 +164,25 @@ public class HelloServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         
         if ("processPatients".equals(action)) {
-            // Procesamiento deshabilitado - solo Polling
-            out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo Polling activo\"}");
+            // Procesamiento deshabilitado - solo Polling Directo
+            out.println("{\"success\": false, \"message\": \"Procesamiento deshabilitado - Solo Polling Directo activo\"}");
         } else if ("forcePoll".equals(action)) {
-            webListenerService.forcePoll();
-            out.println("{\"success\": true, \"message\": \"Polling forzado exitosamente\"}");
+            try {
+                System.out.println("=== POLLING FORZADO DESDE SERVLET ===");
+                String message = jmsConfig.readBasicMessageFromQueue();
+                if (message != null && !message.trim().isEmpty()) {
+                    out.println("{\"success\": true, \"message\": \"Polling forzado exitosamente - Mensaje encontrado: " + message.length() + " caracteres\"}");
+                } else {
+                    out.println("{\"success\": true, \"message\": \"Polling forzado exitosamente - No hay mensajes en la cola\"}");
+                }
+            } catch (Exception e) {
+                out.println("{\"success\": false, \"message\": \"Error en polling forzado: " + e.getMessage() + "\"}");
+            }
         } else if ("getSummary".equals(action)) {
-            String summary = webListenerService.getListenerStatus();
+            String summary = "Polling Directo - Sin CDI - JMSConfig inicializado directamente";
             out.println("{\"success\": true, \"summary\": \"" + summary.replace("\"", "\\\"") + "\"}");
         } else if ("getQueueInfo".equals(action)) {
-            String queueInfo = webListenerService.getListenerStatus();
+            String queueInfo = "Polling Directo - Cola: excel.input.queue - Broker: http://localhost:8161/api/message";
             out.println("{\"success\": true, \"queueInfo\": \"" + queueInfo + "\"}");
         }
     }
