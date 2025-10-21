@@ -174,6 +174,11 @@ public class RealJMSListener implements ServletContextListener {
                 System.out.println("Starting connection...");
                 connection.start();
                 
+                // Test polling manual como alternativa
+                logger.info("Starting manual polling test...");
+                System.out.println("Starting manual polling test...");
+                startManualPolling(session, queue);
+                
                 isInitialized = true;
                 
                 System.out.println("==========================================");
@@ -284,5 +289,83 @@ public class RealJMSListener implements ServletContextListener {
      */
     public static boolean isInitialized() {
         return isInitialized;
+    }
+    
+    /**
+     * Inicia polling manual como alternativa al MessageListener
+     */
+    private static void startManualPolling(jakarta.jms.Session session, jakarta.jms.Queue queue) {
+        java.util.concurrent.Executors.newSingleThreadExecutor().submit(() -> {
+            try {
+                logger.info("Starting manual polling thread...");
+                System.out.println("Starting manual polling thread...");
+                
+                while (isInitialized) {
+                    try {
+                        // Crear consumer temporal para polling
+                        jakarta.jms.MessageConsumer tempConsumer = session.createConsumer(queue);
+                        
+                        // Intentar recibir mensaje con timeout
+                        jakarta.jms.Message message = tempConsumer.receive(1000); // 1 segundo timeout
+                        
+                        if (message != null) {
+                            System.out.println("==========================================");
+                            System.out.println("=== MESSAGE RECEIVED BY MANUAL POLLING ===");
+                            System.out.println("=== TIMESTAMP: " + java.time.LocalDateTime.now() + " ===");
+                            System.out.println("==========================================");
+                            logger.info("=== MESSAGE RECEIVED BY MANUAL POLLING ===");
+                            
+                            if (message instanceof jakarta.jms.TextMessage textMessage) {
+                                String messageText = textMessage.getText();
+                                System.out.println("Message type: TextMessage");
+                                System.out.println("Message length: " + messageText.length() + " characters");
+                                System.out.println("First 200 chars: " + messageText.substring(0, Math.min(200, messageText.length())));
+                                
+                                // Generar ID único para el mensaje
+                                String messageId = "jms-polling-" + System.currentTimeMillis();
+                                
+                                // Almacenar mensaje para consulta
+                                receivedMessages.put(messageId, messageText);
+                                messageHistory.add(messageText);
+                                
+                                // Mantener solo los últimos 10 mensajes
+                                if (messageHistory.size() > 10) {
+                                    messageHistory.remove(0);
+                                }
+                                
+                                System.out.println("==========================================");
+                                System.out.println("=== MESSAGE STORED BY MANUAL POLLING ===");
+                                System.out.println("=== MESSAGE ID: " + messageId + " ===");
+                                System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
+                                System.out.println("==========================================");
+                            }
+                        }
+                        
+                        tempConsumer.close();
+                        
+                        // Esperar 2 segundos antes del siguiente polling
+                        Thread.sleep(2000);
+                        
+                    } catch (jakarta.jms.JMSException e) {
+                        logger.log(java.util.logging.Level.SEVERE, "Error in manual polling: " + e.getMessage(), e);
+                        System.err.println("Error in manual polling: " + e.getMessage());
+                        try {
+                            Thread.sleep(5000); // Esperar 5 segundos antes de reintentar
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                }
+                
+            } catch (InterruptedException e) {
+                logger.info("Manual polling thread interrupted");
+                System.out.println("Manual polling thread interrupted");
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.log(java.util.logging.Level.SEVERE, "Unexpected error in manual polling: " + e.getMessage(), e);
+                System.err.println("Unexpected error in manual polling: " + e.getMessage());
+            }
+        });
     }
 }
