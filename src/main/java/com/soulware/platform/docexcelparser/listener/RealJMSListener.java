@@ -93,9 +93,9 @@ public class RealJMSListener implements ServletContextListener {
                 System.out.println("Creating session...");
                 session = connection.createSession(false, jakarta.jms.Session.AUTO_ACKNOWLEDGE);
                 
-                // Create queue
-                logger.info("Creating queue: excel.input.queue");
-                System.out.println("Creating queue: excel.input.queue");
+                // Get reference to existing queue
+                logger.info("Getting reference to existing queue: excel.input.queue");
+                System.out.println("Getting reference to existing queue: excel.input.queue");
                 jakarta.jms.Queue queue = session.createQueue("excel.input.queue");
                 
                 // Create consumer
