@@ -1,151 +1,115 @@
 package com.soulware.platform.docexcelparser.service;
 
-import com.soulware.platform.docexcelparser.listener.RealJMSListener;
 import com.soulware.platform.docexcelparser.listener.SimpleTestListener;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 /**
- * Servicio para obtener mensajes del listener JMS real o fallback al test listener
- * Este servicio actúa como interfaz entre el servlet y los listeners
+ * Servicio para obtener mensajes del SimpleTestListener (Testing sin JMS)
+ * Este servicio actúa como interfaz entre el servlet y el SimpleTestListener
  */
 @ApplicationScoped
 public class WebListenerService {
     
     /**
-     * Obtiene el último mensaje recibido por el listener activo
+     * Obtiene el último mensaje recibido por el SimpleTestListener
      * @return Contenido del último mensaje o null si no hay mensajes
      */
     public String getLastMessage() {
         try {
-            // Intentar obtener mensaje del RealJMSListener primero
-            if (RealJMSListener.isInitialized()) {
-                System.out.println("=== OBTENIENDO ÚLTIMO MENSAJE DEL REAL JMS LISTENER ===");
-                String message = RealJMSListener.getLastMessage();
-                
-                if (message != null) {
-                    System.out.println("Mensaje obtenido del JMS real: " + message.length() + " caracteres");
-                    return message;
-                }
-            }
-            
-            // Fallback al SimpleTestListener
-            System.out.println("=== OBTENIENDO ÚLTIMO MENSAJE DEL TEST LISTENER (FALLBACK) ===");
+            System.out.println("=== OBTENIENDO ÚLTIMO MENSAJE DEL TEST LISTENER ===");
             String message = SimpleTestListener.getLastMessage();
             
             if (message != null) {
-                System.out.println("Mensaje obtenido del test listener: " + message.length() + " caracteres");
+                System.out.println("Mensaje obtenido: " + message.length() + " caracteres");
                 return message;
             } else {
-                System.out.println("No hay mensajes disponibles en ningún listener");
+                System.out.println("No hay mensajes disponibles en el listener");
                 return null;
             }
             
         } catch (Exception e) {
-            System.err.println("Error obteniendo mensaje de los listeners: " + e.getMessage());
+            System.err.println("Error obteniendo mensaje del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
     
     /**
-     * Obtiene todos los mensajes almacenados en el listener activo
+     * Obtiene todos los mensajes almacenados en el SimpleTestListener
      * @return Lista de todos los mensajes recibidos
      */
     public List<String> getAllMessages() {
         try {
-            // Intentar obtener mensajes del RealJMSListener primero
-            if (RealJMSListener.isInitialized()) {
-                System.out.println("=== OBTENIENDO TODOS LOS MENSAJES DEL REAL JMS LISTENER ===");
-                List<String> messages = RealJMSListener.getAllMessages();
-                System.out.println("Total mensajes obtenidos del JMS real: " + messages.size());
-                return messages;
-            }
-            
-            // Fallback al SimpleTestListener
-            System.out.println("=== OBTENIENDO TODOS LOS MENSAJES DEL TEST LISTENER (FALLBACK) ===");
+            System.out.println("=== OBTENIENDO TODOS LOS MENSAJES DEL TEST LISTENER ===");
             List<String> messages = SimpleTestListener.getAllMessages();
-            System.out.println("Total mensajes obtenidos del test listener: " + messages.size());
+            System.out.println("Total mensajes obtenidos: " + messages.size());
             return messages;
             
         } catch (Exception e) {
-            System.err.println("Error obteniendo mensajes de los listeners: " + e.getMessage());
+            System.err.println("Error obteniendo mensajes del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
             return List.of();
         }
     }
     
     /**
-     * Obtiene el estado del listener activo
+     * Obtiene el estado del SimpleTestListener
      * @return String con información del estado
      */
     public String getListenerStatus() {
         try {
-            if (RealJMSListener.isInitialized()) {
-                return "REAL JMS: " + RealJMSListener.getListenerStatus();
-            } else {
-                return "TEST MODE: " + SimpleTestListener.getListenerStatus();
-            }
+            return SimpleTestListener.getListenerStatus();
         } catch (Exception e) {
             return "Error obteniendo estado del listener: " + e.getMessage();
         }
     }
     
     /**
-     * Limpia todos los mensajes almacenados en el listener activo
+     * Limpia todos los mensajes almacenados en el SimpleTestListener
      */
     public void clearMessages() {
         try {
-            if (RealJMSListener.isInitialized()) {
-                System.out.println("=== LIMPIANDO MENSAJES DEL REAL JMS LISTENER ===");
-                RealJMSListener.clearMessages();
-            } else {
-                System.out.println("=== LIMPIANDO MENSAJES DEL TEST LISTENER ===");
-                SimpleTestListener.clearMessages();
-            }
+            System.out.println("=== LIMPIANDO MENSAJES DEL TEST LISTENER ===");
+            SimpleTestListener.clearMessages();
         } catch (Exception e) {
-            System.err.println("Error limpiando mensajes de los listeners: " + e.getMessage());
+            System.err.println("Error limpiando mensajes del SimpleTestListener: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
     /**
-     * Verifica si hay mensajes disponibles en el listener activo
+     * Verifica si hay mensajes disponibles en el SimpleTestListener
      * @return true si hay mensajes disponibles, false en caso contrario
      */
     public boolean hasMessages() {
         try {
-            String lastMessage = getLastMessage();
+            String lastMessage = SimpleTestListener.getLastMessage();
             return lastMessage != null && !lastMessage.trim().isEmpty();
         } catch (Exception e) {
-            System.err.println("Error verificando mensajes de los listeners: " + e.getMessage());
+            System.err.println("Error verificando mensajes del SimpleTestListener: " + e.getMessage());
             return false;
         }
     }
     
     /**
-     * Verifica si el listener JMS real está inicializado
-     * @return true si está inicializado, false en caso contrario
-     */
-    public boolean isRealJMSInitialized() {
-        try {
-            return RealJMSListener.isInitialized();
-        } catch (Exception e) {
-            System.err.println("Error verificando estado del JMS real: " + e.getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Verifica si el listener está inicializado (cualquiera de los dos)
+     * Verifica si el listener está inicializado
      * @return true si está inicializado, false en caso contrario
      */
     public boolean isListenerInitialized() {
         try {
-            return RealJMSListener.isInitialized() || SimpleTestListener.isInitialized();
+            return SimpleTestListener.isInitialized();
         } catch (Exception e) {
-            System.err.println("Error verificando estado de los listeners: " + e.getMessage());
+            System.err.println("Error verificando estado del listener: " + e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Verifica si el listener JMS real está inicializado (siempre false por ahora)
+     * @return false (JMS no configurado)
+     */
+    public boolean isRealJMSInitialized() {
+        return false; // JMS no configurado en WildFly
     }
 }
