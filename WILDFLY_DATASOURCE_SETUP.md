@@ -106,6 +106,41 @@ WFLYCTL0412: Required services that are not installed: ["jboss.jdbc-driver.Excel
 - ✅ Agregado pool de conexiones optimizado
 - ✅ Agregado timeouts y validación de conexión
 - ✅ Agregado driver MySQL en sección drivers
+- ✅ **Instalado módulo MySQL**: Creado `modules/com/mysql/main/` con driver y module.xml
+
+## Instalación del Módulo MySQL ✅ **COMPLETADO**
+
+**Problema identificado**: WildFly no tenía el módulo MySQL instalado, causando el error del driver.
+
+**Solución implementada**:
+
+### 1. Crear estructura del módulo
+```bash
+mkdir "C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\modules\com\mysql\main"
+```
+
+### 2. Crear archivo module.xml
+**Ubicación**: `C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\modules\com\mysql\main\module.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="urn:jboss:module:1.8" name="com.mysql">
+    <resources>
+        <resource-root path="mysql-connector-j-8.0.33.jar"/>
+    </resources>
+    <dependencies>
+        <module name="javax.api"/>
+        <module name="javax.transaction.api"/>
+    </dependencies>
+</module>
+```
+
+### 3. Copiar driver MySQL
+```bash
+copy "target\DocExcelParser\WEB-INF\lib\mysql-connector-j-8.0.33.jar" "C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\modules\com\mysql\main\"
+```
+
+**Resultado**: Módulo MySQL instalado correctamente en WildFly.
 
 ## Base de Datos MySQL
 
