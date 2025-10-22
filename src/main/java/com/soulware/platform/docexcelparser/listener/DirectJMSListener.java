@@ -169,6 +169,79 @@ public class DirectJMSListener implements ServletContextListener {
                                 System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
                                 System.out.println("==========================================");
 
+                            } else if (message instanceof BytesMessage bytesMessage) {
+                                try {
+                                    byte[] messageBytes = new byte[(int) bytesMessage.getBodyLength()];
+                                    bytesMessage.readBytes(messageBytes);
+                                    String messageText = new String(messageBytes, "UTF-8");
+                                    
+                                    System.out.println("==========================================");
+                                    System.out.println("=== MENSAJE JMS RECIBIDO (BYTES) ===");
+                                    System.out.println("=== ID: " + message.getJMSMessageID() + " ===");
+                                    System.out.println("Message content:");
+                                    System.out.println(messageText);
+                                    System.out.println("==========================================");
+                                    logger.info("Received BYTES message: " + messageText.length() + " characters");
+
+                                    // Procesar JSON y Excel (mismo código que TextMessage)
+                                    try {
+                                        JsonNode jsonNode = objectMapper.readTree(messageText);
+                                        
+                                        // Extraer campos específicos
+                                        String messageId = jsonNode.has("messageId") ? jsonNode.get("messageId").asText() : "unknown";
+                                        String fileName = jsonNode.has("fileName") ? jsonNode.get("fileName").asText() : "unknown.xlsx";
+                                        String status = jsonNode.has("status") ? jsonNode.get("status").asText() : "unknown";
+                                        
+                                        System.out.println("Message ID: " + messageId);
+                                        System.out.println("File Name: " + fileName);
+                                        System.out.println("Status: " + status);
+                                        
+                                        // Procesar Excel desde MinIO si existe fileKey
+                                        if (jsonNode.has("fileKey")) {
+                                            String fileKey = jsonNode.get("fileKey").asText();
+                                            String minioFileName = jsonNode.has("fileName") ? 
+                                                jsonNode.get("fileName").asText() : "excel-file.xlsx";
+                                            System.out.println("MinIO File Key: " + fileKey);
+                                            System.out.println("File Name: " + minioFileName);
+                                            
+                                            // Procesar el Excel desde MinIO
+                                            processExcelFromMinIO(fileKey, minioFileName, messageId);
+                                        } else if (jsonNode.has("excelBase64")) {
+                                            // Mantener compatibilidad con mensajes antiguos (Base64)
+                                            String base64 = jsonNode.get("excelBase64").asText();
+                                            System.out.println("Excel Base64 Length: " + base64.length() + " characters");
+                                            
+                                            // Procesar el Excel desde Base64 (legacy)
+                                            processExcelData(base64, fileName, messageId);
+                                        } else {
+                                            System.out.println("No Excel data found in message (neither fileKey nor excelBase64)");
+                                        }
+                                        
+                                    } catch (Exception jsonException) {
+                                        System.out.println("Error parsing JSON: " + jsonException.getMessage());
+                                        System.out.println("Raw message: " + messageText);
+                                    }
+
+                                    // Almacenar mensaje para consulta
+                                    receivedMessages.offer(message.getJMSMessageID());
+                                    receivedMessages.offer(messageText);
+                                    messageHistory.add(messageText);
+
+                                    // Mantener solo los últimos 10 mensajes
+                                    if (messageHistory.size() > 10) {
+                                        messageHistory.remove(0);
+                                    }
+
+                                    System.out.println("==========================================");
+                                    System.out.println("=== MESSAGE STORED SUCCESSFULLY ===");
+                                    System.out.println("=== MESSAGE ID: " + message.getJMSMessageID() + " ===");
+                                    System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
+                                    System.out.println("==========================================");
+                                    
+                                } catch (Exception e) {
+                                    System.out.println("Error processing BytesMessage: " + e.getMessage());
+                                    logger.log(Level.SEVERE, "Error processing BytesMessage: " + e.getMessage(), e);
+                                }
                             } else {
                                 System.out.println("=== MENSAJE JMS RECIBIDO (NO TEXT): " + message.getClass().getName() + " ===");
                                 logger.info("JMS Message Received (Non-Text): " + message.getClass().getName());
