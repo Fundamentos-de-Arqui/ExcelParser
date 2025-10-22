@@ -524,8 +524,10 @@ public class ExcelPatientParser {
                     String cellValue = getCellValueAsString(cell);
                     if (cellValue == null) continue;
                     
-                    // Detectar responsable R.1
-                    if (cellValue.contains("R.1") && cellValue.contains("Nombre")) {
+                    // Detectar responsable R.1 - más flexible
+                    if (cellValue.contains("R.1") && 
+                        (cellValue.contains("Nombre") || cellValue.contains("Apellidos") || cellValue.contains("es."))) {
+                        System.out.println("DEBUG - R.1 encontrado: '" + cellValue + "'");
                         LegalGuardian guardian1 = extractGuardianData(sheet, rowIndex, cellIndex, "R.1");
                         if (guardian1 != null) {
                             legalGuardians.add(guardian1);
@@ -533,8 +535,10 @@ public class ExcelPatientParser {
                         }
                     }
                     
-                    // Detectar responsable R.2
-                    if (cellValue.contains("R.2") && cellValue.contains("Nombre")) {
+                    // Detectar responsable R.2 - más flexible
+                    if (cellValue.contains("R.2") && 
+                        (cellValue.contains("Nombre") || cellValue.contains("Apellidos") || cellValue.contains("es."))) {
+                        System.out.println("DEBUG - R.2 encontrado: '" + cellValue + "'");
                         LegalGuardian guardian2 = extractGuardianData(sheet, rowIndex, cellIndex, "R.2");
                         if (guardian2 != null) {
                             legalGuardians.add(guardian2);
@@ -576,9 +580,11 @@ public class ExcelPatientParser {
                     String cellValue = getCellValueAsString(cell);
                     if (cellValue == null || cellValue.trim().isEmpty()) continue;
                     
-                    // Buscar datos específicos del responsable
-                    if (cellValue.contains(guardianType + " Nombre") || 
-                        cellValue.contains(guardianType + " Nombre/es")) {
+                    // Buscar datos específicos del responsable - más flexible
+                    if (cellValue.contains(guardianType) && 
+                        (cellValue.contains("Nombre") || cellValue.contains("Apellidos") || cellValue.contains("es."))) {
+                        
+                        System.out.println("DEBUG - Campo nombre encontrado: '" + cellValue + "'");
                         
                         // El siguiente valor debería ser el nombre
                         Cell nameCell = row.getCell(startCol + colOffset + 1);
@@ -591,8 +597,7 @@ public class ExcelPatientParser {
                         }
                     }
                     
-                    if (cellValue.contains(guardianType + " Documento") || 
-                        cellValue.contains(guardianType + " Documento de Identidad")) {
+                    if (cellValue.contains(guardianType) && cellValue.contains("Documento")) {
                         
                         Cell docCell = row.getCell(startCol + colOffset + 1);
                         if (docCell != null) {
@@ -604,8 +609,8 @@ public class ExcelPatientParser {
                         }
                     }
                     
-                    if (cellValue.contains(guardianType + " Parentesco") || 
-                        cellValue.contains(guardianType + " Relación")) {
+                    if (cellValue.contains(guardianType) && 
+                        (cellValue.contains("Parentesco") || cellValue.contains("Relación"))) {
                         
                         Cell relationshipCell = row.getCell(startCol + colOffset + 1);
                         if (relationshipCell != null) {
@@ -617,8 +622,8 @@ public class ExcelPatientParser {
                         }
                     }
                     
-                    if (cellValue.contains(guardianType + " Celular") || 
-                        cellValue.contains(guardianType + " Teléfono")) {
+                    if (cellValue.contains(guardianType) && 
+                        (cellValue.contains("Celular") || cellValue.contains("Teléfono") || cellValue.contains("Fono"))) {
                         
                         Cell phoneCell = row.getCell(startCol + colOffset + 1);
                         if (phoneCell != null) {
@@ -630,8 +635,8 @@ public class ExcelPatientParser {
                         }
                     }
                     
-                    if (cellValue.contains(guardianType + " E-mail") || 
-                        cellValue.contains(guardianType + " Email")) {
+                    if (cellValue.contains(guardianType) && 
+                        (cellValue.contains("E-mail") || cellValue.contains("Email") || cellValue.contains("Correo"))) {
                         
                         Cell emailCell = row.getCell(startCol + colOffset + 1);
                         if (emailCell != null) {
