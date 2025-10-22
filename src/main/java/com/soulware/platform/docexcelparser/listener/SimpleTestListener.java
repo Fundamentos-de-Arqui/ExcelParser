@@ -121,4 +121,14 @@ public class SimpleTestListener implements ServletContextListener {
     public static boolean isInitialized() {
         return isInitialized;
     }
+
+    /**
+     * Limpia el último mensaje leído para permitir leer el siguiente
+     */
+    public static void clearLastMessage() {
+        if (!messageHistory.isEmpty()) {
+            messageHistory.remove(messageHistory.size() - 1);
+            System.out.println("=== ÚLTIMO MENSAJE LIMPIADO DEL TEST LISTENER ===");
+        }
+    }
 }
