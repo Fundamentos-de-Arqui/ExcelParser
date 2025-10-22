@@ -53,37 +53,75 @@ WFLYCTL0412: Required services that are not installed: ["jboss.jdbc-driver.Excel
 /subsystem=datasources/data-source=ExcelParserMySQLDS:enable
 ```
 
-### Opción 3: Modificar standalone.xml
+### Opción 3: Modificar standalone.xml ✅ **IMPLEMENTADO**
 
-Agregar en `standalone.xml` dentro de `<subsystem xmlns="urn:jboss:domain:datasources:7.0">`:
+**Ubicación**: `C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\standalone\configuration\standalone.xml`
+
+**Configuración aplicada**:
 
 ```xml
-<datasource jndi-name="java:/jdbc/ExcelParserMySQLDS" pool-name="ExcelParserMySQLDS" enabled="true">
-    <connection-url>jdbc:mysql://localhost:3306/excel_parser_db</connection-url>
-    <driver>mysql</driver>
-    <pool>
-        <min-pool-size>5</min-pool-size>
-        <max-pool-size>20</max-pool-size>
-    </pool>
-    <security>
-        <user-name>tu_usuario</user-name>
-        <password>tu_password</password>
-    </security>
-</datasource>
+<subsystem xmlns="urn:jboss:domain:datasources:7.2">
+    <datasources>
+        <!-- Datasource MySQL configurado -->
+        <datasource jndi-name="java:/jdbc/ExcelParserMySQLDS" 
+                   pool-name="ExcelParserMySQLDS" 
+                   enabled="true" 
+                   use-java-context="true">
+            <connection-url>jdbc:mysql://localhost:3306/excelparserdb?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</connection-url>
+            <driver>mysql</driver>
+            <pool>
+                <min-pool-size>5</min-pool-size>
+                <max-pool-size>20</max-pool-size>
+                <prefill>true</prefill>
+                <use-strict-min>false</use-strict-min>
+            </pool>
+            <timeout>
+                <idle-timeout-minutes>15</idle-timeout-minutes>
+                <query-timeout>300</query-timeout>
+                <use-try-lock>60</use-try-lock>
+            </timeout>
+            <security user-name="root" password="tumadrexd789"/>
+            <validation>
+                <valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLValidConnectionChecker"/>
+                <background-validation>true</background-validation>
+                <background-validation-millis>30000</background-validation-millis>
+                <exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.mysql.MySQLExceptionSorter"/>
+            </validation>
+        </datasource>
+        
+        <!-- Driver MySQL agregado -->
+        <drivers>
+            <driver name="mysql" module="com.mysql">
+                <driver-class>com.mysql.cj.jdbc.Driver</driver-class>
+            </driver>
+        </drivers>
+    </datasources>
+</subsystem>
 ```
+
+**Cambios realizados**:
+- ✅ Corregido nombre del driver de `ExcelParser-1.0-SNAPSHOT.war_com.mysql.cj.jdbc.Driver_8_0` a `mysql`
+- ✅ Agregado `enabled="true"` y `use-java-context="true"`
+- ✅ Mejorada URL de conexión con parámetros MySQL8
+- ✅ Agregado pool de conexiones optimizado
+- ✅ Agregado timeouts y validación de conexión
+- ✅ Agregado driver MySQL en sección drivers
 
 ## Base de Datos MySQL
 
 ### Crear la Base de Datos
 
 ```sql
-CREATE DATABASE excel_parser_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE excelparserdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Crear usuario (opcional)
+-- Usuario ya configurado: root con password tumadrexd789
+-- Si necesitas crear un usuario específico:
 CREATE USER 'excel_parser_user'@'localhost' IDENTIFIED BY 'password123';
-GRANT ALL PRIVILEGES ON excel_parser_db.* TO 'excel_parser_user'@'localhost';
+GRANT ALL PRIVILEGES ON excelparserdb.* TO 'excel_parser_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
+
+**Nota**: La configuración actual usa el usuario `root` con password `tumadrexd789` y la base de datos `excelparserdb`.
 
 ### Tablas
 
@@ -91,8 +129,39 @@ Las tablas se crearán automáticamente gracias a la configuración `hibernate.h
 
 ## Verificación
 
+### 1. **Verificar Configuración del standalone.xml**
+```bash
+# Verificar que el archivo se modificó correctamente
+findstr /n "ExcelParserMySQLDS" "C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\standalone\configuration\standalone.xml"
+```
+
+### 2. **Iniciar WildFly**
+```bash
+# Detener WildFly si está ejecutándose
+# Luego iniciar desde:
+C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\bin\standalone.bat
+```
+
+### 3. **Verificar Datasource en CLI**
+```bash
+# Conectar a WildFly CLI
+C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\bin\jboss-cli.bat --connect
+
+# Verificar datasource
+/subsystem=datasources/data-source=ExcelParserMySQLDS:read-resource
+
+# Probar conexión
+/subsystem=datasources/data-source=ExcelParserMySQLDS:test-connection-in-pool
+```
+
+### 4. **Verificar en Consola Web**
+- Acceder a: `http://localhost:9990/console`
+- Ir a **Configuration** → **Subsystems** → **Datasources**
+- Verificar que `ExcelParserMySQLDS` aparece como **Enabled**
+
+### 5. **Deployar y Probar Aplicación**
 1. **Compilar proyecto**: `mvn clean package`
-2. **Deployar WAR**: Copiar `target/DocExcelParser.war` a `wildfly/standalone/deployments/`
+2. **Deployar WAR**: Copiar `target/DocExcelParser.war` a `C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\standalone\deployments\`
 3. **Verificar logs**: Revisar que no aparezcan errores de datasource
 4. **Probar aplicación**: Acceder a `http://localhost:8080/DocExcelParser/`
 
@@ -109,4 +178,15 @@ Las tablas se crearán automáticamente gracias a la configuración `hibernate.h
 ✅ **Empaquetado**: WAR generado correctamente  
 ✅ **Dependencias**: Todas agregadas  
 ✅ **Configuración JPA**: Completa  
-⏳ **Deploy**: Pendiente de configuración de datasource en WildFly
+✅ **Configuración Datasource**: Implementada en standalone.xml  
+✅ **Driver MySQL**: Configurado correctamente  
+⏳ **Deploy**: Listo para probar - solo falta iniciar WildFly y deployar
+
+## Resumen de Configuración Implementada
+
+- **Ubicación WildFly**: `C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final`
+- **Base de Datos**: `excelparserdb` en MySQL localhost:3306
+- **Usuario**: `root` / Password: `tumadrexd789`
+- **JNDI Name**: `java:/jdbc/ExcelParserMySQLDS`
+- **Pool**: 5-20 conexiones con validación automática
+- **Driver**: MySQL Connector/J configurado correctamente
