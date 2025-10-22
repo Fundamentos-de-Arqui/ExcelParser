@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import com.soulware.platform.docexcelparser.parser.ExcelPatientParser;
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
+import com.soulware.platform.docexcelparser.service.PatientJSONSenderService;
 import java.util.Base64;
 import java.io.ByteArrayInputStream;
 import java.util.List;
@@ -41,10 +42,11 @@ public class DirectJMSListener implements ServletContextListener {
 
     private static final ConcurrentLinkedQueue<String> receivedMessages = new ConcurrentLinkedQueue<>();
     private static final List<String> messageHistory = Collections.synchronizedList(new ArrayList<>());
-    private static final List<PatientProfile> processedPatients = Collections.synchronizedList(new ArrayList<>());
-    private static volatile boolean isInitialized = false;
-    private static String listenerStatus = "No inicializado";
-    private static ExcelPatientParser excelParser;
+           private static final List<PatientProfile> processedPatients = Collections.synchronizedList(new ArrayList<>());
+           private static volatile boolean isInitialized = false;
+           private static String listenerStatus = "No inicializado";
+           private static ExcelPatientParser excelParser;
+           private static PatientJSONSenderService patientJSONSender;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -69,8 +71,11 @@ public class DirectJMSListener implements ServletContextListener {
                 // Inicializar ObjectMapper para JSON
                 objectMapper = new ObjectMapper();
                 
-                // Inicializar el parser de Excel
-                excelParser = new ExcelPatientParser();
+                       // Inicializar el parser de Excel
+                       excelParser = new ExcelPatientParser();
+                       
+                       // Inicializar el servicio para enviar JSON a cola separada
+                       patientJSONSender = new PatientJSONSenderService();
 
                 // Usar ActiveMQConnectionFactory directamente como en lab62
                 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(BROKER_URL);
@@ -192,12 +197,18 @@ public class DirectJMSListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        System.out.println("=== DIRECT JMS LISTENER STOPPING ===");
-        logger.info("=== DirectJMSListener STOPPING ===");
-        closeExistingConnections();
-        clearMessages();
-        isInitialized = false;
-        listenerStatus = "Detenido";
+           System.out.println("=== DIRECT JMS LISTENER STOPPING ===");
+           logger.info("=== DirectJMSListener STOPPING ===");
+           closeExistingConnections();
+           clearMessages();
+           
+           // Cerrar conexión del servicio JSON
+           if (patientJSONSender != null) {
+               patientJSONSender.closeConnection();
+           }
+           
+           isInitialized = false;
+           listenerStatus = "Detenido";
     }
 
     private static void closeExistingConnections() {
@@ -289,19 +300,29 @@ public class DirectJMSListener implements ServletContextListener {
             System.out.println("=== PACIENTES ENCONTRADOS: " + patients.size() + " ===");
             System.out.println("==========================================");
             
-            // Almacenar pacientes procesados
-            processedPatients.addAll(patients);
-            
-            // Mantener solo los últimos 50 pacientes
-            if (processedPatients.size() > 50) {
-                processedPatients.subList(0, processedPatients.size() - 50).clear();
-            }
-            
-            // Log de cada paciente
-            for (int i = 0; i < patients.size(); i++) {
-                PatientProfile patientItem = patients.get(i);
-                System.out.println("Paciente " + (i + 1) + ": " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
-            }
+                   // Almacenar pacientes procesados
+                   processedPatients.addAll(patients);
+                   
+                   // Mantener solo los últimos 50 pacientes
+                   if (processedPatients.size() > 50) {
+                       processedPatients.subList(0, processedPatients.size() - 50).clear();
+                   }
+                   
+                   // Log de cada paciente
+                   for (int i = 0; i < patients.size(); i++) {
+                       PatientProfile patientItem = patients.get(i);
+                       System.out.println("Paciente " + (i + 1) + ": " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+                   }
+                   
+                   // Enviar datos del paciente a cola separada
+                   for (PatientProfile patientItem : patients) {
+                       boolean sent = patientJSONSender.sendPatientDataToQueue(patientItem);
+                       if (sent) {
+                           System.out.println("✅ Datos del paciente enviados a cola separada: " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+                       } else {
+                           System.err.println("❌ Error enviando datos del paciente a cola separada: " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+                       }
+                   }
             
         } catch (Exception e) {
             System.err.println("==========================================");
