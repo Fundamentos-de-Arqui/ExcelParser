@@ -1,6 +1,8 @@
 package com.soulware.platform.docexcelparser;
 
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
+import com.soulware.platform.docexcelparser.entity.LegalGuardian;
+import com.soulware.platform.docexcelparser.entity.ReferredTherapist;
 import com.soulware.platform.docexcelparser.service.WebListenerService;
 import com.soulware.platform.docexcelparser.service.JMSMessageSender;
 import jakarta.inject.Inject;
@@ -184,8 +186,45 @@ public class HelloServlet extends HttpServlet {
                 out.println("<p><strong>Distrito:</strong> " + patient.getDistrict() + "</p>");
                 out.println("<p><strong>Provincia:</strong> " + patient.getProvince() + "</p>");
                 out.println("<p><strong>Región:</strong> " + patient.getRegion() + "</p>");
-                out.println("<p><strong>País:</strong> " + patient.getCountry() + "</p>");
-                out.println("</div>");
+                       out.println("<p><strong>País:</strong> " + patient.getCountry() + "</p>");
+                       
+                       // Mostrar responsables legales
+                       List<LegalGuardian> legalGuardians = patient.getLegalGuardians();
+                       if (legalGuardians != null && !legalGuardians.isEmpty()) {
+                           out.println("<div style='margin-top: 15px; padding: 10px; background-color: #f0f8ff; border-radius: 4px;'>");
+                           out.println("<h5>👨‍👩‍👧‍👦 Responsables Legales (" + legalGuardians.size() + "):</h5>");
+                           
+                           for (int j = 0; j < legalGuardians.size(); j++) {
+                               LegalGuardian guardian = legalGuardians.get(j);
+                               out.println("<div style='margin: 10px 0; padding: 8px; background-color: #e6f3ff; border-radius: 4px;'>");
+                               out.println("<strong>Responsable " + (j + 1) + ":</strong><br/>");
+                               out.println("📝 <strong>Nombre:</strong> " + (guardian.getFullName() != null ? guardian.getFullName() : "No especificado") + "<br/>");
+                               out.println("🆔 <strong>Documento:</strong> " + (guardian.getIdentityDocumentNumber() != null ? guardian.getIdentityDocumentNumber() : "No especificado") + "<br/>");
+                               out.println("👥 <strong>Parentesco:</strong> " + (guardian.getRelationship() != null ? guardian.getRelationship() : "No especificado") + "<br/>");
+                               out.println("📞 <strong>Teléfono:</strong> " + (guardian.getPhoneNumber() != null ? guardian.getPhoneNumber() : "No especificado") + "<br/>");
+                               out.println("📧 <strong>Email:</strong> " + (guardian.getEmail() != null ? guardian.getEmail() : "No especificado") + "<br/>");
+                           out.println("</div>");
+                       }
+                       
+                       // Mostrar médico tratante principal
+                       ReferredTherapist therapist = patient.getReferredTherapist();
+                       if (therapist != null && therapist.hasName()) {
+                           out.println("<div style='margin-top: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 4px;'>");
+                           out.println("<h5>👨‍⚕️ Médico Tratante Principal:</h5>");
+                           out.println("<p><strong>Nombre:</strong> " + therapist.getTherapistName() + "</p>");
+                           out.println("</div>");
+                       } else {
+                           out.println("<div style='margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px;'>");
+                           out.println("<h5>👨‍⚕️ Médico Tratante Principal:</h5>");
+                           out.println("<p style='color: #856404;'>No se encontró información del médico tratante en este formulario.</p>");
+                           out.println("</div>");
+                       }
+                       } else {
+                           out.println("<div style='margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px;'>");
+                           out.println("<h5>👨‍👩‍👧‍👦 Responsables Legales:</h5>");
+                           out.println("<p style='color: #856404;'>No se encontraron responsables legales en este formulario.</p>");
+                           out.println("</div>");
+                       }
             }
         } else {
             out.println("<p class='no-messages'>No hay pacientes procesados aún. Envía un mensaje con datos de Excel para procesar.</p>");

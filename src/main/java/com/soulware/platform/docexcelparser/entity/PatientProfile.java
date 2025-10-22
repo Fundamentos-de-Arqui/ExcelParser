@@ -2,6 +2,8 @@ package com.soulware.platform.docexcelparser.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Entidad que representa el perfil de un paciente
@@ -81,6 +83,14 @@ public class PatientProfile {
 
     @Column(name = "current_educational_institution")
     private String currentEducationalInstitution;
+
+    // Relación One-to-Many con LegalGuardian
+    @OneToMany(mappedBy = "patientProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<LegalGuardian> legalGuardians = new ArrayList<>();
+
+    // Value Object para el médico tratante principal
+    @Embedded
+    private ReferredTherapist referredTherapist;
 
     // Constructores
     public PatientProfile() {
@@ -275,6 +285,45 @@ public class PatientProfile {
 
     public void setCurrentEducationalInstitution(String currentEducationalInstitution) {
         this.currentEducationalInstitution = currentEducationalInstitution;
+    }
+
+    public List<LegalGuardian> getLegalGuardians() {
+        return legalGuardians;
+    }
+
+    public void setLegalGuardians(List<LegalGuardian> legalGuardians) {
+        this.legalGuardians = legalGuardians;
+    }
+
+    public void addLegalGuardian(LegalGuardian legalGuardian) {
+        legalGuardians.add(legalGuardian);
+        legalGuardian.setPatientProfile(this);
+    }
+
+    public void removeLegalGuardian(LegalGuardian legalGuardian) {
+        legalGuardians.remove(legalGuardian);
+        legalGuardian.setPatientProfile(null);
+    }
+
+    public ReferredTherapist getReferredTherapist() {
+        return referredTherapist;
+    }
+
+    public void setReferredTherapist(ReferredTherapist referredTherapist) {
+        this.referredTherapist = referredTherapist;
+    }
+
+    // Método de conveniencia para establecer el nombre del médico tratante
+    public void setTherapistName(String therapistName) {
+        if (this.referredTherapist == null) {
+            this.referredTherapist = new ReferredTherapist();
+        }
+        this.referredTherapist.setTherapistName(therapistName);
+    }
+
+    // Método de conveniencia para obtener el nombre del médico tratante
+    public String getTherapistName() {
+        return referredTherapist != null ? referredTherapist.getTherapistName() : null;
     }
 
     @Override

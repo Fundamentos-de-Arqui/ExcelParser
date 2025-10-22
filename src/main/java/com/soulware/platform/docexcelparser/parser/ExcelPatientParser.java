@@ -1,6 +1,8 @@
 package com.soulware.platform.docexcelparser.parser;
 
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
+import com.soulware.platform.docexcelparser.entity.LegalGuardian;
+import com.soulware.platform.docexcelparser.entity.ReferredTherapist;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -12,6 +14,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -119,6 +123,12 @@ public class ExcelPatientParser {
             
             // Extraer datos del formulario médico
             extractPatientData(sheet, patient);
+            
+            // Extraer datos de responsables legales
+            extractLegalGuardiansData(sheet, patient);
+            
+            // Extraer datos del médico tratante principal
+            extractReferredTherapistData(sheet, patient);
             
             workbook.close();
             System.out.println("=== PARSING COMPLETADO EXITOSAMENTE ===");
@@ -489,5 +499,309 @@ public class ExcelPatientParser {
         
         System.out.println("=== VALIDACIÓN ROBUSTA COMPLETADA ===");
         return cleaned;
+    }
+    
+    /**
+     * Extrae datos de responsables legales desde la hoja de Excel
+     * Busca las secciones R.1 y R.2 con los datos de responsables
+     */
+    private void extractLegalGuardiansData(Sheet sheet, PatientProfile patient) {
+        try {
+            System.out.println("=== EXTRAYENDO DATOS DE RESPONSABLES LEGALES ===");
+            
+            List<LegalGuardian> legalGuardians = new ArrayList<>();
+            
+            // Buscar responsables legales R.1 y R.2
+            for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                if (row == null) continue;
+                
+                // Buscar filas que contengan "R.1" o "R.2"
+                for (int cellIndex = 0; cellIndex < row.getLastCellNum(); cellIndex++) {
+                    Cell cell = row.getCell(cellIndex);
+                    if (cell == null) continue;
+                    
+                    String cellValue = getCellValueAsString(cell);
+                    if (cellValue == null) continue;
+                    
+                    // Detectar responsable R.1
+                    if (cellValue.contains("R.1") && cellValue.contains("Nombre")) {
+                        LegalGuardian guardian1 = extractGuardianData(sheet, rowIndex, cellIndex, "R.1");
+                        if (guardian1 != null) {
+                            legalGuardians.add(guardian1);
+                            System.out.println("Responsable R.1 encontrado: " + guardian1.getFullName());
+                        }
+                    }
+                    
+                    // Detectar responsable R.2
+                    if (cellValue.contains("R.2") && cellValue.contains("Nombre")) {
+                        LegalGuardian guardian2 = extractGuardianData(sheet, rowIndex, cellIndex, "R.2");
+                        if (guardian2 != null) {
+                            legalGuardians.add(guardian2);
+                            System.out.println("Responsable R.2 encontrado: " + guardian2.getFullName());
+                        }
+                    }
+                }
+            }
+            
+            // Agregar responsables al paciente
+            for (LegalGuardian guardian : legalGuardians) {
+                patient.addLegalGuardian(guardian);
+            }
+            
+            System.out.println("=== RESPONSABLES LEGALES EXTRAÍDOS: " + legalGuardians.size() + " ===");
+            
+        } catch (Exception e) {
+            System.err.println("Error extrayendo responsables legales: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Extrae datos de un responsable específico (R.1 o R.2)
+     */
+    private LegalGuardian extractGuardianData(Sheet sheet, int startRow, int startCol, String guardianType) {
+        try {
+            LegalGuardian guardian = new LegalGuardian();
+            
+            // Buscar datos en las siguientes filas
+            for (int rowOffset = 0; rowOffset < 10; rowOffset++) { // Buscar en las siguientes 10 filas
+                Row row = sheet.getRow(startRow + rowOffset);
+                if (row == null) continue;
+                
+                for (int colOffset = 0; colOffset < 5; colOffset++) { // Buscar en las siguientes 5 columnas
+                    Cell cell = row.getCell(startCol + colOffset);
+                    if (cell == null) continue;
+                    
+                    String cellValue = getCellValueAsString(cell);
+                    if (cellValue == null || cellValue.trim().isEmpty()) continue;
+                    
+                    // Buscar datos específicos del responsable
+                    if (cellValue.contains(guardianType + " Nombre") || 
+                        cellValue.contains(guardianType + " Nombre/es")) {
+                        
+                        // El siguiente valor debería ser el nombre
+                        Cell nameCell = row.getCell(startCol + colOffset + 1);
+                        if (nameCell != null) {
+                            String fullName = getCellValueAsString(nameCell);
+                            if (fullName != null && !fullName.trim().isEmpty()) {
+                                guardian.setFullName(fullName.trim());
+                                System.out.println(guardianType + " Nombre: " + fullName);
+                            }
+                        }
+                    }
+                    
+                    if (cellValue.contains(guardianType + " Documento") || 
+                        cellValue.contains(guardianType + " Documento de Identidad")) {
+                        
+                        Cell docCell = row.getCell(startCol + colOffset + 1);
+                        if (docCell != null) {
+                            String docNumber = getCellValueAsString(docCell);
+                            if (docNumber != null && !docNumber.trim().isEmpty()) {
+                                guardian.setIdentityDocumentNumber(docNumber.trim());
+                                System.out.println(guardianType + " Documento: " + docNumber);
+                            }
+                        }
+                    }
+                    
+                    if (cellValue.contains(guardianType + " Parentesco") || 
+                        cellValue.contains(guardianType + " Relación")) {
+                        
+                        Cell relationshipCell = row.getCell(startCol + colOffset + 1);
+                        if (relationshipCell != null) {
+                            String relationship = getCellValueAsString(relationshipCell);
+                            if (relationship != null && !relationship.trim().isEmpty()) {
+                                guardian.setRelationship(relationship.trim());
+                                System.out.println(guardianType + " Parentesco: " + relationship);
+                            }
+                        }
+                    }
+                    
+                    if (cellValue.contains(guardianType + " Celular") || 
+                        cellValue.contains(guardianType + " Teléfono")) {
+                        
+                        Cell phoneCell = row.getCell(startCol + colOffset + 1);
+                        if (phoneCell != null) {
+                            String phone = getCellValueAsString(phoneCell);
+                            if (phone != null && !phone.trim().isEmpty()) {
+                                guardian.setPhoneNumber(phone.trim());
+                                System.out.println(guardianType + " Teléfono: " + phone);
+                            }
+                        }
+                    }
+                    
+                    if (cellValue.contains(guardianType + " E-mail") || 
+                        cellValue.contains(guardianType + " Email")) {
+                        
+                        Cell emailCell = row.getCell(startCol + colOffset + 1);
+                        if (emailCell != null) {
+                            String email = getCellValueAsString(emailCell);
+                            if (email != null && !email.trim().isEmpty()) {
+                                guardian.setEmail(email.trim());
+                                System.out.println(guardianType + " Email: " + email);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Solo retornar si tiene al menos el nombre
+            if (guardian.getFullName() != null && !guardian.getFullName().trim().isEmpty()) {
+                return guardian;
+            }
+            
+            return null;
+            
+        } catch (Exception e) {
+            System.err.println("Error extrayendo datos del " + guardianType + ": " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Extrae datos del médico tratante principal desde la hoja de Excel
+     * Busca la sección "MÉDICO TRATANTE PRINCIPAL" y extrae el nombre
+     */
+    private void extractReferredTherapistData(Sheet sheet, PatientProfile patient) {
+        try {
+            System.out.println("=== EXTRAYENDO DATOS DEL MÉDICO TRATANTE PRINCIPAL ===");
+            System.out.println("Total de filas en la hoja: " + (sheet.getLastRowNum() + 1));
+            
+            // Buscar la sección del médico tratante principal
+            for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                if (row == null) continue;
+                
+                // Buscar filas que contengan "MÉDICO TRATANTE PRINCIPAL"
+                for (int cellIndex = 0; cellIndex < row.getLastCellNum(); cellIndex++) {
+                    Cell cell = row.getCell(cellIndex);
+                    if (cell == null) continue;
+                    
+                    String cellValue = getCellValueAsString(cell);
+                    if (cellValue == null) continue;
+                    
+                    // Debug: mostrar contenido de celdas que contengan "MÉDICO" o "TRATANTE"
+                    if (cellValue.toUpperCase().contains("MÉDICO") || 
+                        cellValue.toUpperCase().contains("MEDICO") ||
+                        cellValue.toUpperCase().contains("TRATANTE")) {
+                        System.out.println("DEBUG - Celda encontrada en fila " + rowIndex + ", col " + cellIndex + ": '" + cellValue + "'");
+                    }
+                    
+                    // Detectar sección del médico tratante - más flexible
+                    if (cellValue.toUpperCase().contains("MÉDICO TRATANTE PRINCIPAL") || 
+                        cellValue.toUpperCase().contains("MEDICO TRATANTE PRINCIPAL") ||
+                        cellValue.toUpperCase().contains("Médico Tratante Principal") ||
+                        cellValue.toUpperCase().contains("MÈDICO TRATANTE PRINCIPAL") ||
+                        cellValue.toUpperCase().contains("III") && cellValue.toUpperCase().contains("MÉDICO")) {
+                        
+                        System.out.println("=== SECCIÓN MÉDICO TRATANTE ENCONTRADA ===");
+                        System.out.println("Fila: " + rowIndex + ", Columna: " + cellIndex);
+                        System.out.println("Contenido: " + cellValue);
+                        
+                        String therapistName = extractTherapistName(sheet, rowIndex, cellIndex);
+                        if (therapistName != null && !therapistName.trim().isEmpty()) {
+                            ReferredTherapist therapist = new ReferredTherapist(therapistName.trim());
+                            patient.setReferredTherapist(therapist);
+                            System.out.println("✅ Médico tratante encontrado: " + therapistName);
+                            return; // Salir después de encontrar el primer médico tratante
+                        } else {
+                            System.out.println("❌ No se pudo extraer el nombre del médico tratante");
+                        }
+                    }
+                }
+            }
+            
+            System.out.println("=== NO SE ENCONTRÓ MÉDICO TRATANTE PRINCIPAL ===");
+            
+        } catch (Exception e) {
+            System.err.println("Error extrayendo datos del médico tratante: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Extrae el nombre del médico tratante desde la posición encontrada
+     */
+    private String extractTherapistName(Sheet sheet, int startRow, int startCol) {
+        try {
+            System.out.println("=== EXTRAYENDO NOMBRE DEL MÉDICO TRATANTE ===");
+            System.out.println("Posición inicial - Fila: " + startRow + ", Columna: " + startCol);
+            
+            // Buscar en las siguientes filas el campo "Nombre y Apellidos"
+            for (int rowOffset = 0; rowOffset < 15; rowOffset++) { // Aumentar rango de búsqueda
+                Row row = sheet.getRow(startRow + rowOffset);
+                if (row == null) continue;
+                
+                System.out.println("Revisando fila " + (startRow + rowOffset) + "...");
+                
+                for (int colOffset = 0; colOffset < 8; colOffset++) { // Aumentar rango de columnas
+                    Cell cell = row.getCell(startCol + colOffset);
+                    if (cell == null) continue;
+                    
+                    String cellValue = getCellValueAsString(cell);
+                    if (cellValue == null || cellValue.trim().isEmpty()) continue;
+                    
+                    System.out.println("  Celda [" + (startRow + rowOffset) + "," + (startCol + colOffset) + "]: '" + cellValue + "'");
+                    
+                    // Buscar el campo "Nombre y Apellidos" del médico - más flexible
+                    if (cellValue.toUpperCase().contains("NOMBRE Y APELLIDOS") || 
+                        cellValue.toUpperCase().contains("NOMBRE") ||
+                        cellValue.toUpperCase().contains("APELLIDOS") ||
+                        cellValue.toUpperCase().contains("MÉDICO") ||
+                        cellValue.toUpperCase().contains("MEDICO") ||
+                        cellValue.toUpperCase().contains("DOCTOR")) {
+                        
+                        System.out.println("  ✅ Campo de nombre encontrado: '" + cellValue + "'");
+                        
+                        // Buscar el nombre en la celda siguiente
+                        Cell nameCell = row.getCell(startCol + colOffset + 1);
+                        if (nameCell != null) {
+                            String therapistName = getCellValueAsString(nameCell);
+                            if (therapistName != null && !therapistName.trim().isEmpty()) {
+                                System.out.println("  ✅ Nombre del médico extraído: '" + therapistName + "'");
+                                return therapistName.trim();
+                            }
+                        }
+                        
+                        // También buscar en la misma fila, columna siguiente
+                        Cell nextCell = row.getCell(startCol + colOffset + 1);
+                        if (nextCell != null) {
+                            String nextValue = getCellValueAsString(nextCell);
+                            if (nextValue != null && !nextValue.trim().isEmpty() && 
+                                !nextValue.toUpperCase().contains("NOMBRE") && 
+                                !nextValue.toUpperCase().contains("APELLIDOS") &&
+                                !nextValue.toUpperCase().contains("ESPECIALIDAD") &&
+                                !nextValue.toUpperCase().contains("LUGAR") &&
+                                !nextValue.toUpperCase().contains("FONO")) {
+                                System.out.println("  ✅ Nombre del médico encontrado en celda adyacente: '" + nextValue + "'");
+                                return nextValue.trim();
+                            }
+                        }
+                    }
+                    
+                    // Buscar directamente nombres que parezcan de personas (Tadeo Jones)
+                    if (cellValue.trim().matches(".*[A-Za-z]+\\s+[A-Za-z]+.*") && 
+                        !cellValue.toUpperCase().contains("NOMBRE") &&
+                        !cellValue.toUpperCase().contains("APELLIDOS") &&
+                        !cellValue.toUpperCase().contains("ESPECIALIDAD") &&
+                        !cellValue.toUpperCase().contains("LUGAR") &&
+                        !cellValue.toUpperCase().contains("FONO") &&
+                        !cellValue.toUpperCase().contains("MÉDICO") &&
+                        !cellValue.toUpperCase().contains("TRATANTE")) {
+                        
+                        System.out.println("  🎯 Posible nombre de médico encontrado: '" + cellValue + "'");
+                        return cellValue.trim();
+                    }
+                }
+            }
+            
+            System.out.println("❌ No se encontró el nombre del médico tratante");
+            return null;
+            
+        } catch (Exception e) {
+            System.err.println("Error extrayendo nombre del médico tratante: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
     }
 }
