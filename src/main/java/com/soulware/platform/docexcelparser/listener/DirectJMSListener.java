@@ -10,15 +10,15 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import com.soulware.platform.docexcelparser.parser.ExcelPatientParser;
 import com.soulware.platform.docexcelparser.entity.PatientProfile;
 import com.soulware.platform.docexcelparser.service.PatientJSONSenderService;
+import com.soulware.platform.docexcelparser.service.MinioService;
 import java.util.Base64;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.List;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,6 +47,7 @@ public class DirectJMSListener implements ServletContextListener {
            private static String listenerStatus = "No inicializado";
            private static ExcelPatientParser excelParser;
            private static PatientJSONSenderService patientJSONSender;
+           private static MinioService minioService;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -76,6 +77,9 @@ public class DirectJMSListener implements ServletContextListener {
                        
                        // Inicializar el servicio para enviar JSON a cola separada
                        patientJSONSender = new PatientJSONSenderService();
+                       
+                       // Inicializar el servicio MinIO
+                       minioService = new MinioService();
 
                 // Usar ActiveMQConnectionFactory directamente como en lab62
                 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(BROKER_URL);
@@ -120,15 +124,25 @@ public class DirectJMSListener implements ServletContextListener {
                                     System.out.println("File Name: " + fileName);
                                     System.out.println("Status: " + status);
                                     
-                                    // Procesar Excel si existe
-                                    if (jsonNode.has("excelBase64")) {
+                                    // Procesar Excel desde MinIO si existe fileKey
+                                    if (jsonNode.has("fileKey")) {
+                                        String fileKey = jsonNode.get("fileKey").asText();
+                                        String minioFileName = jsonNode.has("fileName") ? 
+                                            jsonNode.get("fileName").asText() : "excel-file.xlsx";
+                                        System.out.println("MinIO File Key: " + fileKey);
+                                        System.out.println("File Name: " + minioFileName);
+                                        
+                                        // Procesar el Excel desde MinIO
+                                        processExcelFromMinIO(fileKey, minioFileName, messageId);
+                                    } else if (jsonNode.has("excelBase64")) {
+                                        // Mantener compatibilidad con mensajes antiguos (Base64)
                                         String base64 = jsonNode.get("excelBase64").asText();
                                         System.out.println("Excel Base64 Length: " + base64.length() + " characters");
                                         
-                                        // Procesar el Excel
+                                        // Procesar el Excel desde Base64 (legacy)
                                         processExcelData(base64, fileName, messageId);
                                     } else {
-                                        System.out.println("No Excel data found in message");
+                                        System.out.println("No Excel data found in message (neither fileKey nor excelBase64)");
                                     }
                                     
                                 } catch (Exception jsonException) {
@@ -207,6 +221,11 @@ public class DirectJMSListener implements ServletContextListener {
                patientJSONSender.closeConnection();
            }
            
+           // Cerrar conexión del servicio MinIO
+           if (minioService != null) {
+               minioService.close();
+           }
+           
            isInitialized = false;
            listenerStatus = "Detenido";
     }
@@ -274,7 +293,92 @@ public class DirectJMSListener implements ServletContextListener {
     }
 
     /**
-     * Procesa los datos de Excel desde Base64
+     * Procesa los datos de Excel desde MinIO
+     */
+    private static void processExcelFromMinIO(String fileKey, String fileName, String messageId) {
+        try {
+            System.out.println("==========================================");
+            System.out.println("=== PROCESANDO EXCEL DESDE MINIO ===");
+            System.out.println("=== FILE KEY: " + fileKey + " ===");
+            System.out.println("=== FILE NAME: " + fileName + " ===");
+            System.out.println("=== MESSAGE ID: " + messageId + " ===");
+            System.out.println("==========================================");
+            
+            // Verificar que el archivo existe en MinIO
+            if (!minioService.fileExists(fileKey)) {
+                System.err.println("❌ FILE NOT FOUND in MinIO: " + fileKey);
+                logger.severe("File not found in MinIO: " + fileKey);
+                return;
+            }
+            
+            // Obtener información del archivo
+            MinioService.FileInfo fileInfo = minioService.getFileInfo(fileKey);
+            if (fileInfo != null) {
+                System.out.println("📄 File Info:");
+                System.out.println("   Size: " + fileInfo.getSize() + " bytes");
+                System.out.println("   Content-Type: " + fileInfo.getContentType());
+                System.out.println("   Last Modified: " + fileInfo.getLastModified());
+            }
+            
+            // Descargar Excel desde MinIO
+            byte[] excelBytes = minioService.downloadFile(fileKey);
+            System.out.println("✅ Excel downloaded from MinIO: " + excelBytes.length + " bytes");
+            
+            // Convertir bytes a Base64 para el parser (mantener compatibilidad)
+            String base64Data = Base64.getEncoder().encodeToString(excelBytes);
+            
+            // Procesar con el parser existente
+            PatientProfile patient = excelParser.parsePatientFromExcel(base64Data);
+            List<PatientProfile> patients = List.of(patient);
+            
+            System.out.println("==========================================");
+            System.out.println("=== EXCEL PROCESADO EXITOSAMENTE ===");
+            System.out.println("=== PACIENTES ENCONTRADOS: " + patients.size() + " ===");
+            System.out.println("==========================================");
+            
+            // Almacenar pacientes procesados
+            processedPatients.addAll(patients);
+            
+            // Mantener solo los últimos 50 pacientes
+            if (processedPatients.size() > 50) {
+                processedPatients.subList(0, processedPatients.size() - 50).clear();
+            }
+            
+            // Mostrar información de pacientes procesados
+            for (int i = 0; i < patients.size(); i++) {
+                PatientProfile patientItem = patients.get(i);
+                System.out.println("Paciente " + (i + 1) + ": " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+            }
+            
+            // Enviar datos del paciente a cola separada
+            for (PatientProfile patientItem : patients) {
+                boolean sent = patientJSONSender.sendPatientDataToQueue(patientItem);
+                if (sent) {
+                    System.out.println("✅ Datos del paciente enviados a cola separada: " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+                } else {
+                    System.err.println("❌ Error enviando datos del paciente a cola separada: " + patientItem.getFirstNames() + " " + patientItem.getPaternalSurname());
+                }
+            }
+            
+            // Opcional: eliminar archivo temporal de MinIO
+            try {
+                minioService.deleteFile(fileKey);
+                System.out.println("🗑️  Archivo temporal eliminado de MinIO: " + fileKey);
+            } catch (Exception e) {
+                System.out.println("⚠️  No se pudo eliminar archivo temporal: " + e.getMessage());
+            }
+            
+        } catch (IOException e) {
+            System.err.println("❌ Error downloading Excel from MinIO: " + e.getMessage());
+            logger.log(Level.SEVERE, "Error downloading Excel from MinIO: " + e.getMessage(), e);
+        } catch (Exception e) {
+            System.err.println("❌ Error processing Excel from MinIO: " + e.getMessage());
+            logger.log(Level.SEVERE, "Error processing Excel from MinIO: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Procesa los datos de Excel desde Base64 (método legacy para compatibilidad)
      */
     private static void processExcelData(String base64Data, String fileName, String messageId) {
         try {
@@ -287,9 +391,6 @@ public class DirectJMSListener implements ServletContextListener {
             // Decodificar Base64
             byte[] excelBytes = Base64.getDecoder().decode(base64Data);
             System.out.println("Excel bytes decoded: " + excelBytes.length + " bytes");
-            
-            // Crear InputStream
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(excelBytes);
             
             // Procesar con el parser
             PatientProfile patient = excelParser.parsePatientFromExcel(base64Data);
