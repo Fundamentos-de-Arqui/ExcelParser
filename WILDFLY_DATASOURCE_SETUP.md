@@ -200,6 +200,25 @@ C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\bin\jboss-cli.bat --connect
 3. **Verificar logs**: Revisar que no aparezcan errores de datasource
 4. **Probar aplicación**: Acceder a `http://localhost:8080/DocExcelParser/`
 
+### 6. **Verificar Deploy Exitoso**
+En los logs de WildFly deberías ver:
+```
+WFLYUT0021: Registered web context: '/DocExcelParser'
+WFLYSRV0010: Deployed "DocExcelParser.war"
+```
+
+### 7. **URLs de Acceso**
+- **Hello Servlet**: `http://localhost:8080/DocExcelParser/hello-servlet`
+- **Página Principal**: `http://localhost:8080/DocExcelParser/`
+- **Health Check**: `http://localhost:8080/DocExcelParser/hello-servlet`
+
+### 8. **Funcionalidades Disponibles**
+- ✅ **Dashboard de estado** del procesador
+- ✅ **Revisar cola** excel-input-queue
+- ✅ **Enviar mensajes** a la cola JMS
+- ✅ **Monitorear procesamiento** de pacientes
+- ✅ **Ver resultados** en patient-data-queue
+
 ## Notas Importantes
 
 - Asegúrate de que MySQL esté ejecutándose en el puerto 3306
@@ -215,7 +234,9 @@ C:\Users\suiny\Desktop\wildfly\wildfly-37.0.1.Final\bin\jboss-cli.bat --connect
 ✅ **Configuración JPA**: Completa  
 ✅ **Configuración Datasource**: Implementada en standalone.xml  
 ✅ **Driver MySQL**: Configurado correctamente  
-⏳ **Deploy**: Listo para probar - solo falta iniciar WildFly y deployar
+✅ **Módulo MySQL**: Instalado en WildFly  
+✅ **Módulo module.xml**: Creado con dependencias correctas  
+🚀 **Deploy**: Listo para probar - reinicia WildFly y deploya
 
 ## Resumen de Configuración Implementada
 
