@@ -1,0 +1,14 @@
+{
+  "fileKey": "uploads/1761342725622-f6da322c.xlsx",
+  "fileName": "hoja_identificacion_filled_2.xlsx",
+  "bucket": "my-bucket",
+  "fileSize": 75156,
+  "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "timestamp": "2025-10-24T21:52:06.650Z",
+  "source": "api-gateway-upload",
+  "metadata": {
+    "autoProcessed": true,
+    "originalName": "hoja_identificacion_filled_2.xlsx",
+    "uploadMethod": "multipart"
+  }
+}

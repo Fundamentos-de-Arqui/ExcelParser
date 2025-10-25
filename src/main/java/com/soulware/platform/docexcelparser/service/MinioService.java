@@ -28,16 +28,16 @@ public class MinioService {
     private final String endpoint;
     
     public MinioService() {
-        // Configuración desde variables de entorno o valores por defecto
+        // Configuración desde variables de entorno o valores por defecto para Supabase
         this.endpoint = System.getenv("S3_ENDPOINT") != null ? 
-            System.getenv("S3_ENDPOINT") : "http://localhost:9000";
+            System.getenv("S3_ENDPOINT") : "https://ecjzscyihpidhjbkuimh.storage.supabase.co/storage/v1/s3";
         this.bucketName = System.getenv("S3_BUCKET") != null ? 
             System.getenv("S3_BUCKET") : "my-bucket";
         
         String accessKey = System.getenv("S3_ACCESS_KEY") != null ? 
-            System.getenv("S3_ACCESS_KEY") : "admin";
+            System.getenv("S3_ACCESS_KEY") : "b4fc0906c69779eaee5e9db979daf993";
         String secretKey = System.getenv("S3_SECRET_KEY") != null ? 
-            System.getenv("S3_SECRET_KEY") : "admin12345";
+            System.getenv("S3_SECRET_KEY") : "6c4a20528c4c02973df8089dc38c39985326aafeac242c57c79e753c543bc8ec";
         String region = System.getenv("S3_REGION") != null ? 
             System.getenv("S3_REGION") : "us-east-1";
         
@@ -215,6 +215,65 @@ public class MinioService {
         } catch (Exception e) {
             logger.severe("❌ MinIO connection failed: " + e.getMessage());
             return false;
+        }
+    }
+    
+    /**
+     * Sube un archivo al bucket Supabase Storage
+     * @param key Clave del archivo
+     * @param fileBytes Bytes del archivo
+     * @param contentType Tipo de contenido
+     * @return true si se subió exitosamente
+     */
+    public boolean uploadFile(String key, byte[] fileBytes, String contentType) {
+        try {
+            logger.info("📤 Uploading file: " + key);
+            
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(contentType)
+                .contentLength((long) fileBytes.length)
+                .build();
+                
+            s3Client.putObject(putObjectRequest, software.amazon.awssdk.core.sync.RequestBody.fromBytes(fileBytes));
+            
+            logger.info("✅ File uploaded successfully: " + key);
+            logger.info("   Size: " + fileBytes.length + " bytes");
+            logger.info("   Content-Type: " + contentType);
+            
+            return true;
+        } catch (Exception e) {
+            logger.severe("❌ Error uploading file " + key + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Genera una presigned URL para subir un archivo
+     * @param key Clave del archivo
+     * @param expiresInMinutes Minutos hasta expiración
+     * @return Presigned URL
+     */
+    public String generatePresignedPutUrl(String key, int expiresInMinutes) {
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+                
+            software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest presignRequest = 
+                software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(expiresInMinutes))
+                .putObjectRequest(putObjectRequest)
+                .build();
+                
+            String presignedUrl = s3Presigner.presignPutObject(presignRequest).url().toString();
+            logger.info("✅ Presigned PUT URL generated for: " + key);
+            return presignedUrl;
+        } catch (Exception e) {
+            logger.severe("❌ Error generating presigned PUT URL: " + e.getMessage());
+            return null;
         }
     }
     
