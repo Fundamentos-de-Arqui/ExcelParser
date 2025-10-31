@@ -8,7 +8,7 @@
     
     <servlet>
         <servlet-name>HelloServlet</servlet-name>
-        <servlet-class>com.soulware.platform.docexcelparser.HelloServlet</servlet-class>
+        <servlet-class>com.soulware.platform.docexcelparser.interfaces.web.HelloServlet</servlet-class>
     </servlet>
     
     <servlet-mapping>

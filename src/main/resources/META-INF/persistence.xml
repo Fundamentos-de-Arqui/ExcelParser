@@ -6,9 +6,9 @@
              version="3.2">
     <persistence-unit name="default">
         <jta-data-source>java:/jdbc/ExcelParserMySQLDS</jta-data-source>
-        <class>com.soulware.platform.docexcelparser.entity.PatientProfile</class>
-        <class>com.soulware.platform.docexcelparser.entity.LegalGuardian</class>
-        <class>com.soulware.platform.docexcelparser.entity.ReferredTherapist</class>
+        <class>com.soulware.platform.docexcelparser.domain.model.PatientProfile</class>
+        <class>com.soulware.platform.docexcelparser.domain.model.LegalGuardian</class>
+        <class>com.soulware.platform.docexcelparser.domain.model.ReferredTherapist</class>
         <properties>
             <property name="hibernate.hbm2ddl.auto" value="update"/>
             <property name="hibernate.show_sql" value="true"/>
