@@ -17,31 +17,31 @@ public class ApplicationConfig {
     /**
      * URL del broker JMS (ActiveMQ)
      * Variable de entorno: JMS_BROKER_URL
-     * Default: tcp://localhost:61616
+     * Default: tcp://172.193.242.89:61616
      */
     public String getJmsBrokerUrl() {
         return System.getenv("JMS_BROKER_URL") != null ? 
-            System.getenv("JMS_BROKER_URL") : "tcp://localhost:61616";
+            System.getenv("JMS_BROKER_URL") : "tcp://172.193.242.89:61616";
     }
     
     /**
      * URL HTTP del broker ActiveMQ para API REST
      * Variable de entorno: JMS_BROKER_HTTP_URL
-     * Default: http://localhost:8161/api/message
+     * Default: http://172.193.242.89:8161/api/message
      */
     public String getJmsBrokerHttpUrl() {
         return System.getenv("JMS_BROKER_HTTP_URL") != null ? 
-            System.getenv("JMS_BROKER_HTTP_URL") : "http://localhost:8161/api/message";
+            System.getenv("JMS_BROKER_HTTP_URL") : "http://172.193.242.89:8161/api/message";
     }
     
     /**
      * URL Jolokia del broker ActiveMQ
      * Variable de entorno: JMS_BROKER_JOLOKIA_URL
-     * Default: http://localhost:8161/api/jolokia
+     * Default: http://172.193.242.89:8161/api/jolokia
      */
     public String getJmsBrokerJolokiaUrl() {
         return System.getenv("JMS_BROKER_JOLOKIA_URL") != null ? 
-            System.getenv("JMS_BROKER_JOLOKIA_URL") : "http://localhost:8161/api/jolokia";
+            System.getenv("JMS_BROKER_JOLOKIA_URL") : "http://172.193.242.89:8161/api/jolokia";
     }
     
     /**
@@ -168,11 +168,11 @@ public class ApplicationConfig {
     /**
      * Host del servidor de aplicaciones
      * Variable de entorno: SERVER_HOST
-     * Default: localhost
+     * Default: 172.193.242.89
      */
     public String getServerHost() {
         return System.getenv("SERVER_HOST") != null ? 
-            System.getenv("SERVER_HOST") : "localhost";
+            System.getenv("SERVER_HOST") : "172.193.242.89";
     }
     
     /**

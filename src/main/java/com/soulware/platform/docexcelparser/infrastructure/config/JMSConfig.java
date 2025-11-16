@@ -56,7 +56,7 @@ public class JMSConfig {
             String jolokiaBaseUrl = config.getJmsBrokerJolokiaUrl();
             String serverHost = config.getServerHost();
             int serverPort = config.getServerPort();
-            String jolokiaUrl = jolokiaBaseUrl + "/read/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=" + queueName;
+            String jolokiaUrl = jolokiaBaseUrl + "/read/org.apache.activemq:type=Broker,brokerName=172.193.242.89,destinationType=Queue,destinationName=" + queueName;
             URL url = new URL(jolokiaUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -189,7 +189,8 @@ public class JMSConfig {
                 String latestMessage = null;
                 for (int i = 0; i < queueSize - 1; i++) {
                     try {
-                        String consumeUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue";
+                        String consumeUrl = "http://172.193.242.89:8161/api/message?destination=queue://" + queueName + "&type=queue";
+                        System.out.println(consumeUrl + " (" + (i+1) + "/" + (queueSize-1) + ") TESTINGTESTINGTESTING" );
                         URL url = new URL(consumeUrl);
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("DELETE"); // DELETE para consumir mensajes antiguos
@@ -245,7 +246,7 @@ public class JMSConfig {
             System.out.println("=== INTENTANDO LEER MENSAJES REALES (SIN CONSUMIR) ===");
             
             // Método 1: Usar ActiveMQ REST API para LEER mensajes sin consumir (BROWSE)
-            String browseUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue";
+            String browseUrl = "http://172.193.242.89:8161/api/message?destination=queue://" + queueName + "&type=queue";
             URL url = new URL(browseUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET"); // GET para solo leer mensajes sin consumir
@@ -293,16 +294,16 @@ public class JMSConfig {
         List<String> messages = new ArrayList<>();
         try {
             // Usar Jolokia para obtener información más detallada de los mensajes
-            String jolokiaUrl = "http://localhost:8161/api/jolokia/read/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=" + queueName;
+            String jolokiaUrl = "http://172.193.242.89:8161/api/jolokia/read/org.apache.activemq:type=Broker,brokerName=172.193.242.89,destinationType=Queue,destinationName=" + queueName;
             URL url = new URL(jolokiaUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
             
             // Agregar headers para evitar error CORS de Jolokia
-            conn.setRequestProperty("Origin", "http://localhost:8080");
+            conn.setRequestProperty("Origin", "http://172.193.242.89:8080");
             conn.setRequestProperty("User-Agent", "DocExcelParser/1.0");
-            conn.setRequestProperty("Referer", "http://localhost:8080");
+            conn.setRequestProperty("Referer", "http://172.193.242.89:8080");
             
             // Agregar autenticación básica
             String auth = "admin:admin";
@@ -518,16 +519,16 @@ public class JMSConfig {
         List<String> messages = new ArrayList<>();
         try {
             // Usar Jolokia API para leer información de la cola
-            String jolokiaUrl = "http://localhost:8161/api/jolokia/read/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=" + queueName;
+            String jolokiaUrl = "http://172.193.242.89:8161/api/jolokia/read/org.apache.activemq:type=Broker,brokerName=172.193.242.89,destinationType=Queue,destinationName=" + queueName;
             URL url = new URL(jolokiaUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
             
             // Agregar headers para evitar error CORS de Jolokia
-            conn.setRequestProperty("Origin", "http://localhost:8080");
+            conn.setRequestProperty("Origin", "http://172.193.242.89:8080");
             conn.setRequestProperty("User-Agent", "DocExcelParser/1.0");
-            conn.setRequestProperty("Referer", "http://localhost:8080");
+            conn.setRequestProperty("Referer", "http://172.193.242.89:8080");
             
             // Agregar autenticación básica
             String auth = "admin:admin";
@@ -660,7 +661,7 @@ public class JMSConfig {
             System.out.println("=== LEYENDO MENSAJE BÁSICO DE LA COLA ===");
             
             // Método corregido: usar GET para leer mensajes sin consumir (BROWSE)
-            String browseUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue";
+            String browseUrl = "http://172.193.242.89:8161/api/message?destination=queue://" + queueName + "&type=queue";
             URL url = new URL(browseUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -710,7 +711,7 @@ public class JMSConfig {
             System.out.println("=== INTENTANDO LEER MENSAJE REAL DE LA COLA ===");
             
             // Método 1: Usar ActiveMQ REST API para LEER mensajes sin consumir (BROWSE)
-            String browseUrl = "http://localhost:8161/api/message?destination=queue://" + queueName + "&type=queue";
+            String browseUrl = "http://172.193.242.89:8161/api/message?destination=queue://" + queueName + "&type=queue";
             URL url = new URL(browseUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET"); // GET para solo leer mensajes sin consumir

@@ -86,181 +86,63 @@ public class DirectJMSListener implements ServletContextListener {
                        minioService = new MinioService();
 
                 // Usar ActiveMQConnectionFactory directamente como en lab62
+                // Configuración mejorada para Azure/redes remotas
                 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(brokerUrl);
+                
+                // Configuraciones importantes para Azure/ActiveMQ remoto:
+                // - KeepAlive: mantiene la conexión viva (configurado por defecto)
+                // - Timeouts: aumentados para redes con latencia
+                // - Prefetch: CRÍTICO - reducir a 1 para evitar que mensajes queden bloqueados
+                //   Con prefetch=1, solo se reserva 1 mensaje a la vez
+                factory.setAlwaysSessionAsync(false);
+                
+                // Configurar prefetch policy para evitar mensajes bloqueados
+                // Esto es CRÍTICO para que el polling manual funcione
+                try {
+                    // Intentar configurar prefetch a 1 (solo 1 mensaje a la vez)
+                    // Esto evita que ActiveMQ reserve múltiples mensajes
+                    String brokerUrlWithPrefetch = brokerUrl + "?jms.prefetchPolicy.queuePrefetch=1";
+                    factory = new ActiveMQConnectionFactory(brokerUrlWithPrefetch);
+                    factory.setAlwaysSessionAsync(false);
+                    System.out.println("✅ Prefetch configurado a 1 (solo 1 mensaje a la vez)");
+                } catch (Exception e) {
+                    System.out.println("⚠️  No se pudo configurar prefetch, usando configuración por defecto");
+                    logger.warning("Could not configure prefetch: " + e.getMessage());
+                }
+                
                 connection = factory.createConnection();
-                connection.setClientID("DocExcelParserDirectClient");
+                connection.setClientID("DocExcelParserDirectClient-" + System.currentTimeMillis());
+                
+                // Configurar exception listener para detectar problemas de conexión
+                connection.setExceptionListener(new ExceptionListener() {
+                    @Override
+                    public void onException(JMSException exception) {
+                        System.err.println("==========================================");
+                        System.err.println("=== JMS CONNECTION EXCEPTION ===");
+                        System.err.println("=== ERROR: " + exception.getMessage() + " ===");
+                        System.err.println("=== IMPORTANTE: Problema de conexión detectado ===");
+                        System.err.println("==========================================");
+                        logger.severe("JMS Connection Exception: " + exception.getMessage());
+                        exception.printStackTrace();
+                    }
+                });
 
                 session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
                 Queue queue = session.createQueue(queueName);
 
-                consumer = session.createConsumer(queue);
-
-                // Set message listener usando la misma lógica que lab62
-                consumer.setMessageListener(new MessageListener() {
-                    @Override
-                    public void onMessage(Message message) {
-                        try {
-                            System.out.println("==========================================");
-                            System.out.println("=== MESSAGE RECEIVED BY DIRECT JMS LISTENER ===");
-                            System.out.println("=== TIMESTAMP: " + LocalDateTime.now() + " ===");
-                            System.out.println("==========================================");
-                            logger.info("=== MESSAGE RECEIVED BY DIRECT JMS LISTENER ===");
-
-                            if (message instanceof TextMessage textMessage) {
-                                String messageText = textMessage.getText();
-                                System.out.println("Message type: TextMessage");
-                                System.out.println("Message length: " + messageText.length() + " characters");
-                                System.out.println("Message content:");
-                                System.out.println(messageText);
-                                System.out.println("==========================================");
-                                logger.info("Received TEXT message: " + messageText.length() + " characters");
-
-                                // Procesar JSON y Excel
-                                try {
-                                    JsonNode jsonNode = objectMapper.readTree(messageText);
-                                    
-                                    // Extraer campos específicos
-                                    String messageId = jsonNode.has("messageId") ? jsonNode.get("messageId").asText() : "unknown";
-                                    String fileName = jsonNode.has("fileName") ? jsonNode.get("fileName").asText() : "unknown.xlsx";
-                                    String status = jsonNode.has("status") ? jsonNode.get("status").asText() : "unknown";
-                                    
-                                    System.out.println("Message ID: " + messageId);
-                                    System.out.println("File Name: " + fileName);
-                                    System.out.println("Status: " + status);
-                                    
-                                    // Procesar Excel desde MinIO si existe fileKey
-                                    if (jsonNode.has("fileKey")) {
-                                        String fileKey = jsonNode.get("fileKey").asText();
-                                        String minioFileName = jsonNode.has("fileName") ? 
-                                            jsonNode.get("fileName").asText() : "excel-file.xlsx";
-                                        System.out.println("MinIO File Key: " + fileKey);
-                                        System.out.println("File Name: " + minioFileName);
-                                        
-                                        // Procesar el Excel desde MinIO
-                                        processExcelFromMinIO(fileKey, minioFileName, messageId);
-                                    } else if (jsonNode.has("excelBase64")) {
-                                        // Mantener compatibilidad con mensajes antiguos (Base64)
-                                        String base64 = jsonNode.get("excelBase64").asText();
-                                        System.out.println("Excel Base64 Length: " + base64.length() + " characters");
-                                        
-                                        // Procesar el Excel desde Base64 (legacy)
-                                        processExcelData(base64, fileName, messageId);
-                                    } else {
-                                        System.out.println("No Excel data found in message (neither fileKey nor excelBase64)");
-                                    }
-                                    
-                                } catch (Exception jsonException) {
-                                    System.out.println("Error parsing JSON: " + jsonException.getMessage());
-                                    System.out.println("Raw message: " + messageText);
-                                }
-
-                                // Generar ID único para el mensaje
-                                String messageId = "direct-jms-" + System.currentTimeMillis();
-
-                                // Almacenar mensaje para consulta
-                                receivedMessages.offer(messageId);
-                                receivedMessages.offer(messageText);
-                                messageHistory.add(messageText);
-
-                                // Mantener solo los últimos 10 mensajes
-                                if (messageHistory.size() > 10) {
-                                    messageHistory.remove(0);
-                                }
-
-                                System.out.println("==========================================");
-                                System.out.println("=== MESSAGE STORED SUCCESSFULLY ===");
-                                System.out.println("=== MESSAGE ID: " + messageId + " ===");
-                                System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
-                                System.out.println("==========================================");
-
-                            } else if (message instanceof BytesMessage bytesMessage) {
-                                try {
-                                    byte[] messageBytes = new byte[(int) bytesMessage.getBodyLength()];
-                                    bytesMessage.readBytes(messageBytes);
-                                    String messageText = new String(messageBytes, "UTF-8");
-                                    
-                                    System.out.println("==========================================");
-                                    System.out.println("=== MENSAJE JMS RECIBIDO (BYTES) ===");
-                                    System.out.println("=== ID: " + message.getJMSMessageID() + " ===");
-                                    System.out.println("Message content:");
-                                    System.out.println(messageText);
-                                    System.out.println("==========================================");
-                                    logger.info("Received BYTES message: " + messageText.length() + " characters");
-
-                                    // Procesar JSON y Excel (mismo código que TextMessage)
-                                    try {
-                                        JsonNode jsonNode = objectMapper.readTree(messageText);
-                                        
-                                        // Extraer campos específicos
-                                        String messageId = jsonNode.has("messageId") ? jsonNode.get("messageId").asText() : "unknown";
-                                        String fileName = jsonNode.has("fileName") ? jsonNode.get("fileName").asText() : "unknown.xlsx";
-                                        String status = jsonNode.has("status") ? jsonNode.get("status").asText() : "unknown";
-                                        
-                                        System.out.println("Message ID: " + messageId);
-                                        System.out.println("File Name: " + fileName);
-                                        System.out.println("Status: " + status);
-                                        
-                                        // Procesar Excel desde MinIO si existe fileKey
-                                        if (jsonNode.has("fileKey")) {
-                                            String fileKey = jsonNode.get("fileKey").asText();
-                                            String minioFileName = jsonNode.has("fileName") ? 
-                                                jsonNode.get("fileName").asText() : "excel-file.xlsx";
-                                            System.out.println("MinIO File Key: " + fileKey);
-                                            System.out.println("File Name: " + minioFileName);
-                                            
-                                            // Procesar el Excel desde MinIO
-                                            processExcelFromMinIO(fileKey, minioFileName, messageId);
-                                        } else if (jsonNode.has("excelBase64")) {
-                                            // Mantener compatibilidad con mensajes antiguos (Base64)
-                                            String base64 = jsonNode.get("excelBase64").asText();
-                                            System.out.println("Excel Base64 Length: " + base64.length() + " characters");
-                                            
-                                            // Procesar el Excel desde Base64 (legacy)
-                                            processExcelData(base64, fileName, messageId);
-                                        } else {
-                                            System.out.println("No Excel data found in message (neither fileKey nor excelBase64)");
-                                        }
-                                        
-                                    } catch (Exception jsonException) {
-                                        System.out.println("Error parsing JSON: " + jsonException.getMessage());
-                                        System.out.println("Raw message: " + messageText);
-                                    }
-
-                                    // Almacenar mensaje para consulta
-                                    receivedMessages.offer(message.getJMSMessageID());
-                                    receivedMessages.offer(messageText);
-                                    messageHistory.add(messageText);
-
-                                    // Mantener solo los últimos 10 mensajes
-                                    if (messageHistory.size() > 10) {
-                                        messageHistory.remove(0);
-                                    }
-
-                                    System.out.println("==========================================");
-                                    System.out.println("=== MESSAGE STORED SUCCESSFULLY ===");
-                                    System.out.println("=== MESSAGE ID: " + message.getJMSMessageID() + " ===");
-                                    System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
-                                    System.out.println("==========================================");
-                                    
-                                } catch (Exception e) {
-                                    System.out.println("Error processing BytesMessage: " + e.getMessage());
-                                    logger.log(Level.SEVERE, "Error processing BytesMessage: " + e.getMessage(), e);
-                                }
-                            } else {
-                                System.out.println("=== MENSAJE JMS RECIBIDO (NO TEXT): " + message.getClass().getName() + " ===");
-                                logger.info("JMS Message Received (Non-Text): " + message.getClass().getName());
-                                receivedMessages.offer("Non-text message: " + message.getClass().getName());
-                            }
-                        } catch (JMSException e) {
-                            logger.log(Level.SEVERE, "Error processing JMS message: " + e.getMessage(), e);
-                        }
-                    }
-                });
+                // NO crear consumer aquí - se creará en el polling manual
+                // Esto evita problemas con mensajes bloqueados
+                System.out.println("⚠️  Consumer se creará en el polling manual");
+                System.out.println("   (Esto evita problemas con mensajes bloqueados)");
+                logger.info("Consumer will be created in manual polling thread");
 
                 // Start connection
                 logger.info("Starting connection...");
                 System.out.println("Starting connection...");
                 connection.start();
+                
+                // Iniciar polling manual (método principal para Azure/redes remotas)
+                startManualPolling(session, queue);
 
                 isInitialized = true;
                 listenerStatus = "DIRECT JMS ACTIVO - Escuchando en " + queueName + " (basado en lab62)";
@@ -309,8 +191,13 @@ public class DirectJMSListener implements ServletContextListener {
 
     private static void closeExistingConnections() {
         try {
+            // El consumer ahora se maneja en el polling thread, no aquí
             if (consumer != null) {
-                consumer.close();
+                try {
+                    consumer.close();
+                } catch (Exception e) {
+                    // Ignorar si ya está cerrado
+                }
                 consumer = null;
             }
             if (session != null) {
@@ -535,5 +422,261 @@ public class DirectJMSListener implements ServletContextListener {
         processedPatients.clear();
         System.out.println("=== PACIENTES PROCESADOS LIMPIADOS ===");
         logger.info("Processed patients cleared.");
+    }
+    
+    /**
+     * Inicia polling manual como respaldo al MessageListener
+     * IMPORTANTE: Esto es especialmente útil para ActiveMQ en Azure/redes remotas
+     * donde el MessageListener puede no activarse correctamente debido a:
+     * - Latencia de red
+     * - Firewalls/NAT
+     * - Timeouts de conexión
+     * - Problemas con keep-alive
+     */
+    private static void startManualPolling(Session session, Queue queue) {
+        java.util.concurrent.Executors.newSingleThreadExecutor().submit(() -> {
+            MessageConsumer pollingConsumer = null;
+            try {
+                logger.info("Starting manual polling thread (primary method for Azure/remote ActiveMQ)...");
+                System.out.println("==========================================");
+                System.out.println("=== INICIANDO POLLING MANUAL ===");
+                System.out.println("=== MÉTODO PRINCIPAL PARA AZURE/ACTIVEMQ REMOTO ===");
+                System.out.println("=== COLA: " + queue.getQueueName() + " ===");
+                System.out.println("=== INTERVALO: 3 segundos ===");
+                System.out.println("==========================================");
+                
+                // Crear consumer para polling (sin MessageListener)
+                pollingConsumer = session.createConsumer(queue);
+                System.out.println("✅ Consumer creado para polling manual");
+                System.out.println();
+                
+                int pollCount = 0;
+                int consecutiveErrors = 0;
+                while (isInitialized && connection != null && session != null) {
+                    try {
+                        pollCount++;
+                        
+                        // Intentar recibir mensaje
+                        Message message = null;
+                        try {
+                            // Primero intentar receiveNoWait() para no bloquear
+                            message = pollingConsumer.receiveNoWait();
+                            
+                            // Si no hay mensaje, intentar con timeout
+                            if (message == null) {
+                                message = pollingConsumer.receive(2000); // 2 segundos timeout
+                            }
+                        } catch (JMSException receiveEx) {
+                            System.err.println("Error en receive (Poll #" + pollCount + "): " + receiveEx.getMessage());
+                            consecutiveErrors++;
+                            
+                            // Si hay muchos errores consecutivos, recrear el consumer
+                            if (consecutiveErrors >= 3) {
+                                System.out.println("⚠️  Muchos errores consecutivos, recreando consumer...");
+                                try {
+                                    if (pollingConsumer != null) {
+                                        pollingConsumer.close();
+                                    }
+                                } catch (Exception e) {
+                                    // Ignorar
+                                }
+                                
+                                pollingConsumer = session.createConsumer(queue);
+                                System.out.println("✅ Consumer recreado");
+                                consecutiveErrors = 0;
+                                Thread.sleep(1000);
+                                continue;
+                            }
+                            
+                            Thread.sleep(5000);
+                            continue;
+                        }
+                        
+                        // Resetear contador de errores si recibimos mensaje o timeout normal
+                        consecutiveErrors = 0;
+                        
+                        if (message != null) {
+                            System.out.println("==========================================");
+                            System.out.println("=== MENSAJE RECIBIDO POR POLLING MANUAL ===");
+                            System.out.println("=== POLL #" + pollCount + " ===");
+                            System.out.println("=== TIMESTAMP: " + LocalDateTime.now() + " ===");
+                            System.out.println("==========================================");
+                            logger.info("=== MESSAGE RECEIVED BY MANUAL POLLING (Poll #" + pollCount + ") ===");
+                            
+                            // Procesar el mensaje
+                            processMessage(message);
+                            
+                        } else if (pollCount % 20 == 0) {
+                            // Log cada 20 polls (cada ~60 segundos) para confirmar que está funcionando
+                            System.out.println("Polling activo (Poll #" + pollCount + ") - No hay mensajes en la cola");
+                            logger.fine("Manual polling active (Poll #" + pollCount + ") - No messages");
+                        }
+                        
+                        // Pequeña pausa antes del siguiente polling
+                        Thread.sleep(3000); // 3 segundos entre polls
+                        
+                    } catch (JMSException e) {
+                        logger.log(Level.WARNING, "Error in manual polling (Poll #" + pollCount + "): " + e.getMessage(), e);
+                        System.err.println("Error en polling manual (Poll #" + pollCount + "): " + e.getMessage());
+                        
+                        // Verificar si la conexión sigue activa
+                        if (connection != null) {
+                            try {
+                                // Intentar verificar el estado de la conexión
+                                String clientId = connection.getClientID();
+                                System.out.println("Verificando conexión - ClientID: " + clientId);
+                            } catch (JMSException connEx) {
+                                System.err.println("⚠️  CONEXIÓN PERDIDA - Intentando reconectar...");
+                                logger.severe("Connection lost during polling: " + connEx.getMessage());
+                                // Aquí podrías implementar lógica de reconexión si es necesario
+                            }
+                        }
+                        
+                        try {
+                            Thread.sleep(5000); // Esperar 5 segundos antes de reintentar
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    } catch (InterruptedException e) {
+                        logger.info("Manual polling thread interrupted");
+                        System.out.println("=== POLLING MANUAL INTERRUMPIDO ===");
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                
+                System.out.println("=== POLLING MANUAL DETENIDO (Total polls: " + pollCount + ") ===");
+                logger.info("Manual polling thread stopped (Total polls: " + pollCount + ")");
+                
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Unexpected error in manual polling thread: " + e.getMessage(), e);
+                System.err.println("Error inesperado en polling manual: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                // Cerrar el consumer de polling
+                try {
+                    if (pollingConsumer != null) {
+                        pollingConsumer.close();
+                        System.out.println("✅ Consumer de polling cerrado");
+                    }
+                } catch (JMSException e) {
+                    logger.log(Level.WARNING, "Error closing polling consumer: " + e.getMessage(), e);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Procesa un mensaje JMS (extraído del MessageListener para reutilización)
+     * Este método es usado tanto por el MessageListener como por el polling manual
+     */
+    private static void processMessage(Message message) {
+        try {
+            String messageText = null;
+            String messageId = null;
+            
+            if (message instanceof TextMessage textMessage) {
+                messageText = textMessage.getText();
+                messageId = message.getJMSMessageID();
+                System.out.println("Message type: TextMessage");
+                System.out.println("Message ID: " + messageId);
+                System.out.println("Message length: " + messageText.length() + " characters");
+                System.out.println("Message content:");
+                System.out.println(messageText);
+                System.out.println("==========================================");
+                logger.info("Received TEXT message: " + messageText.length() + " characters");
+                
+            } else if (message instanceof BytesMessage bytesMessage) {
+                byte[] messageBytes = new byte[(int) bytesMessage.getBodyLength()];
+                bytesMessage.readBytes(messageBytes);
+                messageText = new String(messageBytes, "UTF-8");
+                messageId = message.getJMSMessageID();
+                
+                System.out.println("==========================================");
+                System.out.println("=== MENSAJE JMS RECIBIDO (BYTES) ===");
+                System.out.println("=== ID: " + messageId + " ===");
+                System.out.println("Message content:");
+                System.out.println(messageText);
+                System.out.println("==========================================");
+                logger.info("Received BYTES message: " + messageText.length() + " characters");
+            } else {
+                System.out.println("=== MENSAJE JMS RECIBIDO (NO TEXT): " + message.getClass().getName() + " ===");
+                logger.info("JMS Message Received (Non-Text): " + message.getClass().getName());
+                return;
+            }
+            
+            if (messageText == null || messageText.trim().isEmpty()) {
+                System.out.println("Mensaje vacío, ignorando...");
+                return;
+            }
+            
+            // Procesar JSON y Excel
+            try {
+                JsonNode jsonNode = objectMapper.readTree(messageText);
+                
+                // Extraer campos específicos
+                String jsonMessageId = jsonNode.has("messageId") ? jsonNode.get("messageId").asText() : "unknown";
+                String fileName = jsonNode.has("fileName") ? jsonNode.get("fileName").asText() : "unknown.xlsx";
+                String status = jsonNode.has("status") ? jsonNode.get("status").asText() : "unknown";
+                
+                System.out.println("JSON Message ID: " + jsonMessageId);
+                System.out.println("File Name: " + fileName);
+                System.out.println("Status: " + status);
+                
+                // Procesar Excel desde MinIO si existe fileKey
+                if (jsonNode.has("fileKey")) {
+                    String fileKey = jsonNode.get("fileKey").asText();
+                    String minioFileName = jsonNode.has("fileName") ? 
+                        jsonNode.get("fileName").asText() : "excel-file.xlsx";
+                    System.out.println("MinIO File Key: " + fileKey);
+                    System.out.println("File Name: " + minioFileName);
+                    
+                    // Procesar el Excel desde MinIO
+                    processExcelFromMinIO(fileKey, minioFileName, jsonMessageId);
+                } else if (jsonNode.has("excelBase64")) {
+                    // Mantener compatibilidad con mensajes antiguos (Base64)
+                    String base64 = jsonNode.get("excelBase64").asText();
+                    System.out.println("Excel Base64 Length: " + base64.length() + " characters");
+                    
+                    // Procesar el Excel desde Base64 (legacy)
+                    processExcelData(base64, fileName, jsonMessageId);
+                } else {
+                    System.out.println("No Excel data found in message (neither fileKey nor excelBase64)");
+                }
+                
+            } catch (Exception jsonException) {
+                System.out.println("Error parsing JSON: " + jsonException.getMessage());
+                System.out.println("Raw message: " + messageText);
+                logger.log(Level.WARNING, "Error parsing JSON: " + jsonException.getMessage(), jsonException);
+            }
+            
+            // Generar ID único para el mensaje si no existe
+            String storedMessageId = messageId != null ? messageId : "direct-jms-" + System.currentTimeMillis();
+            
+            // Almacenar mensaje para consulta
+            receivedMessages.offer(storedMessageId);
+            receivedMessages.offer(messageText);
+            messageHistory.add(messageText);
+            
+            // Mantener solo los últimos 10 mensajes
+            if (messageHistory.size() > 10) {
+                messageHistory.remove(0);
+            }
+            
+            System.out.println("==========================================");
+            System.out.println("=== MESSAGE STORED SUCCESSFULLY ===");
+            System.out.println("=== MESSAGE ID: " + storedMessageId + " ===");
+            System.out.println("=== TOTAL MESSAGES: " + receivedMessages.size() + " ===");
+            System.out.println("==========================================");
+            
+        } catch (JMSException e) {
+            logger.log(Level.SEVERE, "Error processing JMS message: " + e.getMessage(), e);
+            System.err.println("Error procesando mensaje JMS: " + e.getMessage());
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Unexpected error processing message: " + e.getMessage(), e);
+            System.err.println("Error inesperado procesando mensaje: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }
